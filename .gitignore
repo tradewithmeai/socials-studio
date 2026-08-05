@@ -1,0 +1,20 @@
+
+
+# CCE (code-context-engine)
+# CCE local cache (per-machine, not for version control)
+.cce/
+# Claude Code local settings written by cce init
+.claude/settings.local.json
+
+# Platform login sessions -- live, personal, never commit
+profiles/
+__pycache__/
+*.pyc
+
+# Playwright MCP scratch output (snapshots, screenshots) from dev sessions
+.playwright-mcp/
+
+# Personal dev-machine tooling config (Code Context Engine) -- not part of the shipped product,
+# references local machine paths that mean nothing to other users
+.mcp.json
+.claude/settings.json

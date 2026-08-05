@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Socials Studio — Publish your OpenMontage videos</title>
+<meta name="description" content="OpenMontage creates the video. Socials Studio handles the next stage: review, authentication and publication to YouTube, TikTok, Instagram and X. Independent community project, public beta.">
+<meta property="og:title" content="Socials Studio — Publish your OpenMontage videos">
+<meta property="og:description" content="OpenMontage creates the video. Socials Studio handles the next stage: review, authentication and publication to YouTube, TikTok, Instagram and X. Independent community project, public beta.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tradewithmeai.github.io/socials-studio/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Socials Studio — Publish your OpenMontage videos">
+<meta name="twitter:description" content="OpenMontage creates the video. Socials Studio handles the next stage: review, authentication and publication to YouTube, TikTok, Instagram and X.">
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-alt: #f6f7f9;
+    --text: #16181d;
+    --text-muted: #5a6270;
+    --border: #e3e6ea;
+    --accent: #2f6fed;
+    --accent-text: #ffffff;
+    --card-bg: #ffffff;
+    --code-bg: #f0f1f4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --bg-alt: #161920;
+      --text: #eef0f3;
+      --text-muted: #9aa3b2;
+      --border: #262b34;
+      --accent: #5b8def;
+      --accent-text: #0f1115;
+      --card-bg: #161920;
+      --code-bg: #1b1f28;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; overflow-x: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
+  header.hero {
+    padding: 88px 0 56px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  h1 { font-size: clamp(2.2rem, 5vw, 3.2rem); margin: 0 0 8px; letter-spacing: -0.02em; }
+  h2.tagline {
+    font-size: clamp(1.1rem, 2.6vw, 1.5rem);
+    font-weight: 500;
+    color: var(--text-muted);
+    margin: 0 0 28px;
+  }
+  .lede { max-width: 640px; margin: 0 auto 28px; color: var(--text-muted); font-size: 1.05rem; }
+  .beta-pill {
+    display: inline-block;
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-text);
+    margin-bottom: 28px;
+  }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .btn {
+    display: inline-block;
+    padding: 12px 22px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.98rem;
+    border: 1px solid var(--border);
+    transition: transform 0.08s ease;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .btn-secondary { background: transparent; color: var(--text); }
+  .btn-secondary:hover, .btn-primary:hover { filter: brightness(1.08); }
+
+  section { padding: 56px 0; border-bottom: 1px solid var(--border); }
+  section:last-of-type { border-bottom: none; }
+  section h3 {
+    font-size: 1.6rem;
+    margin: 0 0 24px;
+    letter-spacing: -0.01em;
+  }
+  section p { color: var(--text-muted); }
+
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  @media (max-width: 680px) { .steps { grid-template-columns: 1fr; } }
+  .step {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+  }
+  .step .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px; height: 30px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-text);
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+  }
+  .step h4 { margin: 0 0 6px; font-size: 1.05rem; }
+  .step p { margin: 0; font-size: 0.95rem; }
+  .flow-line {
+    text-align: center;
+    margin-top: 24px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text);
+  }
+
+  table.platforms {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+  }
+  table.platforms th, table.platforms td {
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.95rem;
+  }
+  table.platforms th { color: var(--text-muted); font-weight: 600; }
+  .yes { color: #1a9e5c; font-weight: 600; }
+  .no { color: var(--text-muted); }
+
+  .beta-box {
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .beta-box ul { margin: 12px 0 0; padding-left: 20px; color: var(--text-muted); }
+  .beta-box li { margin-bottom: 6px; }
+
+  .preview-panel {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-muted);
+    background: var(--bg-alt);
+  }
+
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+
+  footer {
+    padding: 40px 0 64px;
+    text-align: center;
+  }
+  footer .disclaimer {
+    max-width: 620px;
+    margin: 0 auto 24px;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+  }
+  footer .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+    font-size: 0.92rem;
+  }
+  footer .links a { color: var(--text-muted); text-decoration: none; }
+  footer .links a:hover { color: var(--accent); text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>Publish your OpenMontage videos</h1>
+    <h2 class="tagline">OpenMontage creates the video. Socials Studio handles the next stage: review, authentication and publication.</h2>
+    <p class="lede">
+      Socials Studio is an independent companion workflow for OpenMontage users. It accepts
+      finished video output, helps you review the publishing details, and publishes it. Publish
+      videos and posts to YouTube, TikTok, Instagram and X.
+    </p>
+    <p class="lede" style="font-size:0.92rem; margin-top:-12px;">
+      Independent community project — not affiliated with, maintained by, or endorsed by
+      OpenMontage.
+    </p>
+    <div class="beta-pill">Public beta available now</div>
+    <div class="btn-row">
+      <a class="btn btn-primary" href="https://github.com/tradewithmeai/socials-studio/releases/tag/v0.1.0-beta.1">Get the public beta</a>
+      <a class="btn btn-secondary" href="https://github.com/tradewithmeai/socials-studio">View on GitHub</a>
+      <a class="btn btn-secondary" href="https://github.com/tradewithmeai/socials-studio/issues/new?template=bug_report.md">Report a problem</a>
+      <a class="btn btn-secondary" href="https://github.com/tradewithmeai/socials-studio/issues/new?template=beta_testing.md">Share test results</a>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h3>How it works</h3>
+    <div class="steps">
+      <div class="step">
+        <div class="num">1</div>
+        <h4>Create</h4>
+        <p>Render or export your finished video from OpenMontage (or any other source).</p>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <h4>Review</h4>
+        <p>Point Socials Studio at the file and set the title, description, and visibility. Dry-run it first to validate before anything uploads.</p>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <h4>Publish</h4>
+        <p>Authenticate once, then publish to YouTube, TikTok, Instagram, or X. Uploads default to private/draft where supported so you can review the live result yourself.</p>
+      </div>
+    </div>
+    <p class="flow-line">OpenMontage export → Socials Studio review → publish to YouTube, TikTok, Instagram or X</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h3>Built for OpenMontage output — and anything else</h3>
+    <p>
+      Socials Studio handles the final publishing stage after content has already been created.
+      This is file-based compatibility, not a technical integration — Socials Studio has no
+      dependency on OpenMontage's code and doesn't call into it. It works with a finished video
+      file from OpenMontage exactly the same way it would work with a finished video file from
+      anywhere else.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h3>Supported platforms</h3>
+    <p><strong>Publish videos and posts to YouTube, TikTok, Instagram and X.</strong> See the
+    <a href="https://github.com/tradewithmeai/socials-studio/blob/main/ROADMAP.md">roadmap</a> for
+    what's next.</p>
+    <table class="platforms">
+      <thead>
+        <tr><th>Platform</th><th>Login (session creation)</th><th>Publish</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>YouTube</td><td class="yes">Yes</td><td class="yes">Yes — via YouTube Studio browser automation</td></tr>
+        <tr><td>TikTok</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+        <tr><td>Instagram</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+        <tr><td>X (Twitter)</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h3>Public beta</h3>
+    <div class="beta-box">
+      <p style="margin-top:0">
+        Socials Studio is being released as a public beta because it has completed real
+        end-to-end publishing tests and is now ready for broader testing. Publishing has been
+        tested for YouTube, TikTok, Instagram and X (see
+        <a href="https://github.com/tradewithmeai/socials-studio#testing-status">Testing status</a>
+        in the README). I want to learn how it performs across different machines, operating
+        systems, coding agents and publishing workflows.
+      </p>
+      <p>Please <a href="https://github.com/tradewithmeai/socials-studio/issues/new?template=beta_testing.md">share your test results</a> and tell us:</p>
+      <ul>
+        <li>Whether installation worked</li>
+        <li>Your operating system</li>
+        <li>Whether you used Claude Code or another coding agent</li>
+        <li>Whether authentication worked</li>
+        <li>Whether YouTube publication succeeded</li>
+        <li>Where the instructions were unclear</li>
+        <li>Any failure involving OpenMontage-rendered output specifically</li>
+      </ul>
+      <p style="margin-bottom:0">
+        Substantive feedback will be considered as the product and public roadmap develop.
+        <em>(That's not a promise every feature request gets built.)</em>
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h3>Demonstration</h3>
+    <div class="preview-panel">
+      <strong>Demo coming soon</strong>
+      <p style="margin:8px 0 0; text-align:left; max-width:440px; margin-left:auto; margin-right:auto;">
+        The planned walkthrough will show:
+      </p>
+      <ol style="text-align:left; max-width:440px; margin:12px auto 0; padding-left:20px;">
+        <li>A finished video exported from OpenMontage</li>
+        <li>The video opened in Socials Studio</li>
+        <li>Publishing details reviewed</li>
+        <li>YouTube authentication and publication</li>
+        <li>The resulting live YouTube post</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p class="disclaimer">
+      Socials Studio is an independent community project. It is not affiliated with, maintained
+      by or endorsed by OpenMontage.
+    </p>
+    <div class="links">
+      <a href="https://github.com/tradewithmeai/socials-studio">Repository</a>
+      <a href="https://github.com/tradewithmeai/socials-studio#readme">Documentation</a>
+      <a href="https://github.com/tradewithmeai/socials-studio/issues">Issues</a>
+      <a href="https://github.com/tradewithmeai/socials-studio/discussions">Discussions</a>
+      <a href="https://github.com/tradewithmeai/socials-studio/blob/main/LICENSE">License</a>
+      <a href="https://github.com/tradewithmeai/socials-studio/blob/main/SECURITY.md">Security policy</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
