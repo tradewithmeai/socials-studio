@@ -7,9 +7,11 @@ current testing status.
 
 - `auth/platforms.py` -- per-platform login config (URLs, logged-in detection).
 - `auth/login_wizard.py` -- interactive login, saves a session per platform.
-- `auth/publish_youtube.py` -- the only publish path implemented so far.
-- `.claude/skills/platform-login/SKILL.md` -- the skill wrapping the login wizard; read it before
-  driving a login on someone's behalf.
+- `auth/publish_youtube.py` -- the only publish path implemented so far. Uses OAuth + the YouTube
+  Data API, NOT browser automation -- Google blocks automated sign-in. Onboarding this from
+  scratch goes through `.claude/skills/onboard-youtube/SKILL.md`, not the login wizard.
+- `.claude/skills/platform-login/SKILL.md` -- the browser-login wizard for TikTok/Instagram/X
+  (not YouTube); read it before driving a login on someone's behalf.
 
 ## Rules for an agent operating here
 

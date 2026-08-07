@@ -75,11 +75,20 @@ hand. `playwright install chrome` is idempotent; safe to re-run.
 
 ## Setup and authentication
 
-Log into a platform once. A real Chrome window opens to that platform's login page -- log in
-yourself, same as you normally would:
+**YouTube is different from the other three** -- Google blocks automated browser sign-in, so it
+uses OAuth + the YouTube Data API instead. See the `onboard-youtube` skill, or run:
 
 ```bash
-python -m auth.login_wizard --platform youtube
+python -m auth.setup_youtube_oauth
+```
+
+(one-time; requires your own Google Cloud OAuth client -- the skill walks through creating one).
+
+For **TikTok, Instagram, and X**, log into a platform once. A real Chrome window opens to that
+platform's login page -- log in yourself, same as you normally would:
+
+```bash
+python -m auth.login_wizard --platform tiktok
 ```
 
 The session is saved to `profiles/<platform>/` on your machine only. It's gitignored, never

@@ -1,6 +1,6 @@
 ---
 name: platform-login
-description: Log into a social platform (TikTok, Instagram, YouTube, X) once via a real Chrome window, saving the session so future posts don't require re-auth. Use when the user asks to connect/log in/authenticate a platform, or when a publish attempt fails because no saved session exists for that platform.
+description: Log into a social platform (TikTok, Instagram, X) once via a real Chrome window, saving the session so future posts don't require re-auth. Does NOT cover YouTube -- see onboard-youtube instead. Use when the user asks to connect/log in/authenticate a platform, or when a publish attempt fails because no saved session exists for that platform.
 ---
 
 # Platform login wizard
@@ -39,8 +39,13 @@ approach exists to avoid.
 python -m auth.login_wizard --platform tiktok
 ```
 
-Supported platform keys: `tiktok`, `instagram`, `youtube`, `x`. List them
+Supported platform keys: `tiktok`, `instagram`, `x`. List them
 with `python -m auth.login_wizard --list`.
+
+**YouTube is NOT in this list, deliberately.** Google actively detects and blocks sign-in attempts
+from automation-controlled browsers ("This browser or app may not be secure") -- confirmed live,
+this is a Google-side defense, not a selector bug. YouTube uses OAuth + the Data API instead; see
+the `onboard-youtube` skill.
 
 ## Notes for the agent
 

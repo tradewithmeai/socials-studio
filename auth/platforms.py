@@ -4,6 +4,13 @@
 detecting a completed login and WILL need periodic verification against the
 live site — platforms change their DOM/URLs without notice. Treat these as
 a starting point, not a guarantee.
+
+YouTube is deliberately NOT here. Google actively detects and blocks sign-in
+attempts from automation-controlled browsers ("This browser or app may not
+be secure") -- confirmed live, this is not a selector bug. YouTube auth uses
+OAuth + the YouTube Data API instead (see auth/setup_youtube_oauth.py and
+auth/publish_youtube.py), a completely different, Google-sanctioned path
+with no browser automation involved.
 """
 
 from __future__ import annotations
@@ -38,13 +45,6 @@ PLATFORMS: dict[str, PlatformConfig] = {
         login_url="https://www.instagram.com/accounts/login/",
         login_url_marker="accounts/login",
         logged_in_selector='svg[aria-label="Home"]',
-    ),
-    "youtube": PlatformConfig(
-        key="youtube",
-        label="YouTube (Google account)",
-        login_url="https://accounts.google.com/ServiceLogin?service=youtube&continue=https://www.youtube.com/",
-        login_url_marker="accounts.google.com",
-        logged_in_selector="#avatar-btn",
     ),
     "x": PlatformConfig(
         key="x",
