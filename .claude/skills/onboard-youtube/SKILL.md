@@ -10,17 +10,16 @@ publish with title/description/tags at public visibility, live verification via 
 public oEmbed check, and deletion verified two ways. This skill is the known-working method --
 follow it, don't improvise a different one.
 
-## Do NOT do this
+## Use OAuth, never browser automation, for YouTube/Google login
 
-- **Do NOT use `auth/login_wizard.py` or any browser automation to log into YouTube/Google.**
-  Confirmed live: Google actively detects and blocks sign-in attempts from automation-controlled
-  browsers with **"This browser or app may not be secure."** This happened even with Playwright's
-  real-Chrome channel (not bundled Chromium) -- it is not a stale-selector bug, it's a deliberate
-  Google defense. Do not try to work around it (spoofing/evading it is not something to build).
-  This is *why* YouTube auth works completely differently from TikTok/Instagram/X in this repo.
-- **Never fill in Google credentials programmatically**, for the same reason plus the general rule:
-  the whole point of a human completing login by hand is that automating it is what gets flagged.
-- Don't skip the dry-run step before a real publish.
+YouTube auth goes through Google's own sanctioned OAuth flow (`auth/setup_youtube_oauth.py`), not
+`auth/login_wizard.py` or any other browser automation. Confirmed live: Google actively detects and
+blocks sign-in attempts from automation-controlled browsers with **"This browser or app may not be
+secure,"** even with Playwright's real-Chrome channel (not bundled Chromium) -- this is a deliberate
+Google defense, not a stale-selector bug, and it is why YouTube auth works completely differently
+from TikTok/Instagram/X in this repo. Let the user complete the OAuth consent screen themselves in
+a real, non-automated browser window; never fill in Google credentials programmatically. Always run
+the dry-run step before a real publish.
 
 ## The known-working method: OAuth + YouTube Data API
 

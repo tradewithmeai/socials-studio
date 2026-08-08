@@ -47,34 +47,56 @@ python -m auth.publish_bluesky "post text" --video path/to/video.mp4
 
 No visibility/draft concept on Bluesky -- a successful publish is immediately live.
 
-## Do NOT do this
+## Required patterns for the publish flow
 
-- **Do not attach media by clicking the button and calling `set_input_files()` on a generic
-  `input[type=file]` locator.** Confirmed live (2026-08-08): a plain click on
-  `[aria-label="Add media to post"]` can fall through to a REAL native OS file-picker dialog
-  outside Playwright's control (it opened Windows Explorer to an unrelated folder). The script
-  then has no way to interact with that dialog, and closing the Playwright context afterward
-  leaves the orphaned OS dialog and Chrome process behind. **Always wrap the click in
-  `page.expect_file_chooser()`** so Playwright intercepts the chooser before it can become a real
-  OS dialog -- this is what `auth/publish_bluesky.py` does now; don't remove it.
-- **Do not wait only for "Processing video" to clear before publishing.** Confirmed live: the
-  actual UI shows **"Uploading video..."** during upload, THEN briefly "Processing video...". A
-  wait-loop checking only for "Processing" exits immediately during the upload phase (that text
-  never appears yet), so the code moves on and either ships a text-only post with the video
-  silently dropped, or clicks Post before the attachment finished and the post never goes out at
-  all (both were observed live). Wait for **both** "Uploading video" and "Processing video" to be
-  absent before checking the Publish button.
-- **Do not trust a `{"status": "posted"}` return value as proof anything actually happened.**
-  Confirmed live: a run reported success while the post never appeared on the account at all
-  (traced back to a stale/locked profile from an earlier interrupted script, not a code bug --
-  but the point stands). Always verify independently.
-- **Never leave a Chrome process running after a script ends, especially after an interrupted
-  or backgrounded run.** This is the single most common cause of Bluesky (and every other
-  platform's) automation "mysteriously" failing on the next attempt -- see the hard rule in the
-  root `CLAUDE.md`. If you background a Playwright script and then need to inspect or continue
-  from where it left off, you generally CAN'T attach a second script to the same open profile
-  (the profile lock prevents it) -- kill the first one cleanly, then start a fresh script that
-  redoes the needed steps from scratch, screenshotting instead of narrating live.
+These are already implemented in `auth/publish_bluesky.py` -- don't remove or weaken them. Each
+exists because the simpler version failed live.
+
+### Always wrap the "Add media" click in `page.expect_file_chooser()`
+
+```python
+with page.expect_file_chooser(timeout=10_000) as fc_info:
+    page.locator('[aria-label="Add media to post"]').first.click()
+fc_info.value.set_files(str(video_file))
+```
+
+Confirmed live (2026-08-08): a plain click on `[aria-label="Add media to post"]`, followed by
+`set_input_files()` on a generic `input[type=file]` locator, can fall through to a REAL native OS
+file-picker dialog outside Playwright's control (it opened Windows Explorer to an unrelated
+folder), leaving the script with no way to interact with it and an orphaned dialog/Chrome process
+behind once the context closes.
+
+### Wait for both "Uploading video" and "Processing video" to clear before checking Publish
+
+```python
+for _ in range(30):
+    uploading = page.get_by_text("Uploading video", exact=False).count()
+    processing = page.get_by_text("Processing video", exact=False).count()
+    if uploading == 0 and processing == 0:
+        break
+    page.wait_for_timeout(2000)
+```
+
+Confirmed live: the actual UI shows **"Uploading video..."** during upload, then briefly
+"Processing video...". A wait-loop checking only for "Processing" exits immediately during the
+upload phase (that text never appears yet), so the code moves on and either ships a text-only post
+with the video silently dropped, or clicks Post before the attachment finished and the post never
+goes out at all (both were observed live).
+
+### Verify independently -- don't trust a `{"status": "posted"}` return value on its own
+
+Confirmed live: a run reported success while the post never appeared on the account at all (traced
+back to a stale/locked profile from an earlier interrupted script, not a code bug -- but the point
+stands). Use the public API check below, every time.
+
+### Never leave a Chrome process running after a script ends
+
+This is the single most common cause of Bluesky (and every other platform's) automation
+"mysteriously" failing on the next attempt -- see the hard rule in the root `CLAUDE.md`. If you
+background a Playwright script and then need to inspect or continue from where it left off, you
+generally CAN'T attach a second script to the same open profile (the profile lock prevents it) --
+kill the first one cleanly, then start a fresh script that redoes the needed steps from scratch,
+screenshotting instead of narrating live.
 
 ## Independent verification (no auth needed)
 

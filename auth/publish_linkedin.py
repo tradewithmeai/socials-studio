@@ -67,13 +67,6 @@ def publish_linkedin(text: str, video_path: str = "", dry_run: bool = False) -> 
             "`python -m auth.login_wizard --platform linkedin` first."
         )
 
-    if video_file:
-        # A URL in the post text auto-attaches a link-preview card that takes the
-        # media slot, hiding "Add media" -- not relevant here since we don't add
-        # links automatically, but real callers should know: attach media BEFORE
-        # any URL-triggered link card appears, or remove the card first.
-        pass
-
     ensure_chrome_installed()
 
     with sync_playwright() as p:
@@ -154,8 +147,9 @@ def publish_linkedin(text: str, video_path: str = "", dry_run: bool = False) -> 
                         page.wait_for_timeout(1000)
                 else:
                     raise RuntimeError(
-                        "'Add media' button not found -- a URL in the post text may have "
-                        "already attached a link-preview card, taking the media slot."
+                        "'Add media' button not found -- a URL in the post text auto-attaches a "
+                        "link-preview card that takes the media slot, so it may have already "
+                        "claimed it. Attach media BEFORE typing any URL that would trigger the card."
                     )
 
             post_btn = page.get_by_role("button", name="Post", exact=True)
