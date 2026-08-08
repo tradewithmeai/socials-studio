@@ -134,6 +134,12 @@ specific ID -- don't trust the delete action's own return value.
   trim-before-upload fix.
 - **Chrome will show "Didn't shut down correctly, restore pages?" on the next launch of this
   profile, every time** -- known, harmless upstream Playwright/Chrome interaction, not data loss.
-- If a publish result looks suspicious, don't diagnose it with repeated short open-close-check
-  scripts -- run a script that performs the action and then blocks so the browser stays open, and
-  look at the actual window before concluding anything.
+- If a publish result looks suspicious, don't try to "keep the browser open" with a standalone
+  script blocking on `input()` or a heartbeat loop -- a browser launched by
+  `launch_persistent_context` is a child of that script's process and dies the instant the process
+  ends, whether or not `.close()` ran; a backgrounded script also has no TTY, so `input()` raises
+  `EOFError` immediately and takes the browser with it. Debug instead with a tool whose browser
+  outlives any single action (an MCP-driven browser, not a one-shot script), and verify state by
+  querying the page/DOM -- never by counting OS processes, which stay elevated (renderer, GPU,
+  network, per-tab utility processes) even mid-teardown and prove nothing about whether the window
+  you care about is still open.

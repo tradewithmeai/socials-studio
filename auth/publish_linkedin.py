@@ -77,6 +77,13 @@ def publish_linkedin(text: str, video_path: str = "", dry_run: bool = False) -> 
         )
         page = context.pages[0] if context.pages else context.new_page()
 
+        # Decline any beforeunload prompt so an in-flight upload is never torn
+        # down by a navigation. LinkedIn continues uploading a large video in
+        # the background after the composer closes; navigating away while
+        # that's happening fires a beforeunload dialog, and letting it through
+        # (the default with no handler) can end the upload before it finishes.
+        page.on("dialog", lambda dialog: dialog.dismiss())
+
         try:
             page.goto("https://www.linkedin.com/feed/", timeout=STEP_TIMEOUT_MS)
             page.wait_for_timeout(2000)
@@ -153,40 +160,73 @@ def publish_linkedin(text: str, video_path: str = "", dry_run: bool = False) -> 
                     )
 
             post_btn = page.get_by_role("button", name="Post", exact=True)
-            post_btn.first.click()
+            # The Post button stays disabled while the composer is still
+            # processing an attached video -- that's "wait", not "error". Give
+            # the click itself a long timeout instead of pre-polling for
+            # "enabled"; Playwright's own actionability check already waits
+            # for the disabled state to clear before clicking.
+            post_btn.first.click(timeout=90_000 if video_file else STEP_TIMEOUT_MS)
 
-            # After clicking Post with a video attached, LinkedIn shows an inline
-            # "Uploading... Keep the page open to finish uploading" banner with a
-            # percentage -- the composer closing does NOT mean the upload (or the
-            # post) is actually done. Confirmed live: closing the browser 2-3s
-            # after the Post click, while that banner still read 15%, meant the
-            # video never finished uploading and the post never actually appeared
-            # anywhere. Wait for the banner to fully clear before returning.
-            if video_file:
-                for _ in range(60):
-                    uploading = page.get_by_text("Keep the page open to finish uploading", exact=False).count()
-                    if uploading == 0:
-                        break
-                    page.wait_for_timeout(2000)
-                else:
-                    raise RuntimeError(
-                        "Video upload did not finish within the wait window -- do not close "
-                        "the browser; check the LinkedIn tab directly."
-                    )
-                page.wait_for_timeout(2000)
-            else:
-                page.wait_for_timeout(3000)
+            # LinkedIn continues uploading a large video in the background
+            # after the composer closes. There's no reliable UI signal to poll
+            # for here -- an earlier version of this script matched on the
+            # banner's exact wording ("Keep the page open to finish
+            # uploading"), which is LinkedIn's copy, not a contract, and is
+            # brittle to any wording change. Instead: don't navigate, wait
+            # long enough for a typical upload, then verify the post actually
+            # exists by reloading the activity feed -- the post's existence is
+            # the real success signal, not any particular banner string.
+            page.wait_for_timeout(45_000 if video_file else 3000)
 
-            # Find own profile URL dynamically for the verify step. Read `.href`
-            # (the resolved absolute URL), NOT getAttribute('href') -- LinkedIn's
-            # profile links are already absolute, and prepending the domain to an
+            composer_open = page.get_by_role(
+                "textbox", name="Text editor for creating content"
+            ).count() > 0
+            if composer_open:
+                raise RuntimeError(
+                    "The composer is still open after the wait -- the post likely hasn't "
+                    "gone out yet. Do not close the browser; check the tab directly."
+                )
+
+            # Find own profile URL dynamically. Read `.href` (the resolved
+            # absolute URL), NOT getAttribute('href') -- LinkedIn's profile
+            # links are already absolute, and prepending the domain to an
             # already-absolute URL doubles it (confirmed live: produced
             # "https://www.linkedin.comhttps://www.linkedin.com/in/...").
-            page.wait_for_timeout(1000)
             profile_url = page.evaluate("""() => {
                 const link = document.querySelector('a[href*="/in/"]');
                 return link ? link.href : null;
             }""")
+
+            verified = False
+            data_urn = None
+            if profile_url:
+                snippet = text[:40]
+                activity_url = profile_url.rstrip("/") + "/recent-activity/all/"
+                page.goto(activity_url, timeout=STEP_TIMEOUT_MS)
+                page.wait_for_timeout(3000)
+                for attempt in range(2):
+                    match = page.evaluate(
+                        """(snippet) => {
+                            const els = [...document.querySelectorAll('[data-urn]')];
+                            for (const el of els) {
+                                if ((el.innerText || '').includes(snippet)) {
+                                    return { urn: el.getAttribute('data-urn'),
+                                              hasVideo: el.querySelector('video') !== null };
+                                }
+                            }
+                            return null;
+                        }""",
+                        snippet,
+                    )
+                    if match:
+                        verified = True
+                        data_urn = match.get("urn")
+                        break
+                    # The activity feed isn't strictly chronological and a new
+                    # post can take a few seconds to be indexed -- scroll to
+                    # load more items and give it one more look before giving up.
+                    page.mouse.wheel(0, 5000)
+                    page.wait_for_timeout(3000)
 
             result = {
                 "platform": "linkedin",
@@ -194,10 +234,14 @@ def publish_linkedin(text: str, video_path: str = "", dry_run: bool = False) -> 
                 "text": text,
                 "had_video": video_file is not None,
                 "profile_url": profile_url,
-                "verify_note": "The activity feed's top post is not always the newest -- "
-                "match on text unique to this post, and read the item's data-urn "
-                "(urn:li:activity:<id>) to capture the real post id. Reload once if it "
-                "hasn't appeared yet.",
+                "verified": verified,
+                "urn": data_urn,
+                "verify_note": (
+                    "Confirmed present on the activity feed."
+                    if verified
+                    else "Not found on the activity feed within the wait window -- indexing "
+                    "can lag; reload the feed manually before assuming the post failed."
+                ),
             }
         finally:
             context.close()

@@ -111,8 +111,14 @@ the better pattern here.
   (`launch_persistent_context` doesn't give Chrome the chance to write a clean-exit flag before
   the process ends, even on a normal `context.close()`), not a sign of data loss or a bug in this
   code. Verified repeatedly: cookies and session state persist correctly across it regardless.
-- If a publish result looks suspicious, don't diagnose it with repeated short open-close-check
-  scripts -- run a script that performs the action and then blocks so the browser stays open, and
-  look at the actual window before concluding anything. This exact failure mode (a script
-  reporting success while nothing had actually happened) was confirmed live on other platforms in
-  this repo; don't assume X is immune just because its mechanics are simpler.
+- If a publish result looks suspicious, don't try to "keep the browser open" with a standalone
+  script blocking on `input()` or a heartbeat loop -- a browser launched by
+  `launch_persistent_context` is a child of that script's process and dies the instant the process
+  ends, whether or not `.close()` ran; a backgrounded script also has no TTY, so `input()` raises
+  `EOFError` immediately and takes the browser with it. Debug instead with a tool whose browser
+  outlives any single action (an MCP-driven browser, not a one-shot script), and verify state by
+  querying the page/DOM -- never by counting OS processes, which stay elevated (renderer, GPU,
+  network, per-tab utility processes) even mid-teardown and prove nothing about whether the window
+  you care about is still open. This exact failure mode (a script reporting success while nothing
+  had actually happened) was confirmed live on other platforms in this repo; don't assume X is
+  immune just because its mechanics are simpler.

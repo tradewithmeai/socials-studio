@@ -84,33 +84,68 @@ next_clicked = page.evaluate("""() => {
 An unscoped `get_by_role("button", name="Next")` can match a document-viewer pagination control
 elsewhere on the page instead (confirmed live), hanging for the full timeout on the wrong element.
 
-### After clicking Post with a video attached, wait for LinkedIn's upload banner to clear before doing anything else
+### A disabled Post button means wait, not error
+
+The Post button stays disabled while the composer is still processing an attached video. Give the
+click itself a long timeout (Playwright's actionability check already waits for "enabled" before
+clicking) rather than treating a disabled button as a failure:
 
 ```python
-for _ in range(60):  # up to 2 minutes
-    uploading = page.get_by_text("Keep the page open to finish uploading", exact=False).count()
-    if uploading == 0:
-        break
-    page.wait_for_timeout(2000)
-else:
-    raise RuntimeError("Video upload did not finish -- do not close the browser.")
+post_btn.first.click(timeout=90_000 if video_file else STEP_TIMEOUT_MS)
 ```
 
-The composer dialog closing does **not** mean the post is done. LinkedIn shows an inline
-**"Uploading... Keep the page open to finish uploading X%"** banner on the main feed page, and
-the upload continues in the background after the dialog closes -- confirmed live, a 19MB video
-was still at ~15% several seconds after the dialog closed. Closing the browser (or otherwise
-ending the script) before that banner clears means the upload, and the post, never completes.
-Skip this wait for text-only posts -- there's nothing to wait for.
+### Decline beforeunload dialogs, then wait, then verify by reloading -- don't poll banner text
 
-### If a publish looks suspicious, keep the browser open and look at it directly
+```python
+page.on("dialog", lambda dialog: dialog.dismiss())  # register once, before any of this
 
-Do not trust a script's own `{"status": "posted"}` return value on its own, and do not diagnose a
-suspicious result by repeatedly running short open-close-check scripts -- none of the three bugs
+post_btn.first.click(timeout=90_000 if video_file else STEP_TIMEOUT_MS)
+page.wait_for_timeout(45_000 if video_file else 3000)
+
+composer_open = page.get_by_role("textbox", name="Text editor for creating content").count() > 0
+if composer_open:
+    raise RuntimeError("Composer still open after the wait -- don't close the browser yet.")
+
+# then reload the activity feed and match on unique text -- see Independent verification below
+```
+
+The composer dialog closing does **not** mean the post is done. LinkedIn continues an attached
+video's upload in the background after the dialog closes -- confirmed live, a 19MB video was still
+uploading several seconds after the dialog closed. An earlier version of this fix polled for the
+exact wording of LinkedIn's upload banner ("Keep the page open to finish uploading"); that's
+LinkedIn's copy, not a contract, and breaks silently if the wording changes. The reliable version
+doesn't depend on banner text at all: don't navigate away while the upload could still be running
+(register a dialog handler that declines `beforeunload`, since navigating away is what actually
+kills an in-flight upload), wait long enough for a typical upload, confirm the composer has
+closed, then treat the post's actual presence on the activity feed as the success signal -- not
+any particular piece of UI copy. Skip the wait for text-only posts -- there's nothing to wait for.
+
+### If a publish looks suspicious, debug with a browser that outlives the check, not a standalone script
+
+Do not trust a script's own `{"status": "posted"}` return value on its own -- none of the three bugs
 above were found that way; all three produced that exact success message while nothing had
-actually happened. Instead: run a script that performs the action and then blocks (a loop that
-never lets the browser process die) so the browser stays open indefinitely, and look at the actual
-window. Only close it once the real state is confirmed.
+actually happened.
+
+But also don't try to "keep the browser open" by having a standalone Python/Playwright script
+block (an `input()` prompt, a heartbeat `while True: sleep()` loop, etc.) so you can inspect it
+across several separate actions. That doesn't work by construction: a browser launched by
+`launch_persistent_context` is a child of that script's process, and the browser dies the moment
+the process ends -- whether or not `.close()` ran, and whether the process ended cleanly, crashed,
+or was backgrounded. A backgrounded process also has no TTY, so `input()` raises `EOFError`
+immediately and takes the browser down with it (the same reason this repo's own guidance forbids
+`Read-Host`-style prompts in scripted contexts). No amount of looping fixes this; it's fighting the
+architecture, not working around it.
+
+The actual fix is to debug with a tool whose browser process is owned by something that outlives
+any single action -- an MCP-driven browser (this environment's Playwright MCP or Chrome
+extension), not a one-shot script. That lets you navigate, act, and inspect across multiple steps
+against one continuous session, pausing mid-flow without the browser evaporating.
+
+**Verify state by querying the page, never by counting OS processes.** A live Chrome instance can
+show a dozen-plus processes (renderer, GPU, network service, one utility process per tab) even
+while mid-teardown -- process count proves nothing about whether the browser window you care about
+is actually still there. Check the DOM/page state itself (e.g. whether the composer textbox still
+exists, per the pattern above) instead of inferring anything from `Get-CimInstance`/`ps` output.
 
 ## Independent verification
 
