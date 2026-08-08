@@ -17,6 +17,7 @@ Instagram); what you type is what gets posted.
 
 Usage:
     python -m auth.publish_linkedin "post text" --video path/to/video.mp4 [--dry-run]
+    python -m auth.publish_linkedin "post text" --image path/to/photo.jpg [--dry-run]
 """
 
 from __future__ import annotations
@@ -33,15 +34,22 @@ from auth.login_wizard import PROFILES_DIR
 STEP_TIMEOUT_MS = 30_000
 
 
-def publish_linkedin(text: str, video_path: str = "", dry_run: bool = False) -> dict:
+def publish_linkedin(text: str, video_path: str = "", image_path: str = "", dry_run: bool = False) -> dict:
     if not text.strip():
         raise SystemExit("Post text is required.")
+    if video_path and image_path:
+        raise SystemExit("Pass either --video or --image, not both.")
 
-    video_file = None
+    media_file = None
+    media_type = None
     if video_path:
-        video_file = Path(video_path).expanduser().resolve()
-        if not video_file.is_file():
-            raise SystemExit(f"video_path not found: {video_file}")
+        media_file = Path(video_path).expanduser().resolve()
+        media_type = "video"
+    elif image_path:
+        media_file = Path(image_path).expanduser().resolve()
+        media_type = "image"
+    if media_file and not media_file.is_file():
+        raise SystemExit(f"{media_type}_path not found: {media_file}")
 
     profile_dir = PROFILES_DIR / "linkedin"
     session_exists = profile_dir.exists()
@@ -51,7 +59,8 @@ def publish_linkedin(text: str, video_path: str = "", dry_run: bool = False) -> 
             "dry_run": True,
             "platform": "linkedin",
             "text": text,
-            "video": str(video_file) if video_file else None,
+            "media_type": media_type,
+            "media": str(media_file) if media_file else None,
             "session_found": session_exists,
             "message": (
                 "Inputs are valid; no browser was launched, nothing was posted."
@@ -123,7 +132,7 @@ def publish_linkedin(text: str, video_path: str = "", dry_run: bool = False) -> 
             page.keyboard.type(text, delay=15)
             page.wait_for_timeout(500)
 
-            if video_file:
+            if media_file:
                 add_media = page.get_by_role("button", name="Add media")
                 if add_media.count() > 0:
                     # expect_file_chooser intercepts the chooser Playwright-side --
@@ -132,7 +141,7 @@ def publish_linkedin(text: str, video_path: str = "", dry_run: bool = False) -> 
                     # "Add media to post" button).
                     with page.expect_file_chooser(timeout=10_000) as fc_info:
                         add_media.first.click()
-                    fc_info.value.set_files(str(video_file))
+                    fc_info.value.set_files(str(media_file))
                     page.wait_for_timeout(3000)
 
                     # get_by_role("button", name="Next") is AMBIGUOUS here --
@@ -141,6 +150,8 @@ def publish_linkedin(text: str, video_path: str = "", dry_run: bool = False) -> 
                     # wizard's Next button, and hung waiting to click something
                     # that was never the right element. Scope to the dialog's
                     # shadow-DOM subtree and match by exact visible text instead.
+                    # Images may skip straight to the composer without a Next
+                    # step at all, so a miss here is not an error.
                     next_clicked = page.evaluate("""() => {
                         const outlet = document.querySelector('#interop-outlet');
                         const root = outlet && outlet.shadowRoot;
@@ -165,7 +176,7 @@ def publish_linkedin(text: str, video_path: str = "", dry_run: bool = False) -> 
             # the click itself a long timeout instead of pre-polling for
             # "enabled"; Playwright's own actionability check already waits
             # for the disabled state to clear before clicking.
-            post_btn.first.click(timeout=90_000 if video_file else STEP_TIMEOUT_MS)
+            post_btn.first.click(timeout=90_000 if media_type == "video" else STEP_TIMEOUT_MS)
 
             # LinkedIn continues uploading a large video in the background
             # after the composer closes. There's no reliable UI signal to poll
@@ -176,7 +187,8 @@ def publish_linkedin(text: str, video_path: str = "", dry_run: bool = False) -> 
             # long enough for a typical upload, then verify the post actually
             # exists by reloading the activity feed -- the post's existence is
             # the real success signal, not any particular banner string.
-            page.wait_for_timeout(45_000 if video_file else 3000)
+            # Images attach fast, so a short wait is enough.
+            page.wait_for_timeout(45_000 if media_type == "video" else 3000)
 
             composer_open = page.get_by_role(
                 "textbox", name="Text editor for creating content"
@@ -203,8 +215,13 @@ def publish_linkedin(text: str, video_path: str = "", dry_run: bool = False) -> 
                 snippet = text[:40]
                 activity_url = profile_url.rstrip("/") + "/recent-activity/all/"
                 page.goto(activity_url, timeout=STEP_TIMEOUT_MS)
-                page.wait_for_timeout(3000)
-                for attempt in range(2):
+                # Confirmed live (2026-08-08): a freshly published post can take
+                # longer than a few seconds to appear here even though the
+                # publish itself already succeeded -- a short wait produces a
+                # false "not verified" on a post that is genuinely live. Give
+                # indexing real time before the first check.
+                page.wait_for_timeout(8000)
+                for attempt in range(3):
                     match = page.evaluate(
                         """(snippet) => {
                             const els = [...document.querySelectorAll('[data-urn]')];
@@ -226,13 +243,13 @@ def publish_linkedin(text: str, video_path: str = "", dry_run: bool = False) -> 
                     # post can take a few seconds to be indexed -- scroll to
                     # load more items and give it one more look before giving up.
                     page.mouse.wheel(0, 5000)
-                    page.wait_for_timeout(3000)
+                    page.wait_for_timeout(5000)
 
             result = {
                 "platform": "linkedin",
                 "status": "posted",
                 "text": text,
-                "had_video": video_file is not None,
+                "media_type": media_type,
                 "profile_url": profile_url,
                 "verified": verified,
                 "urn": data_urn,
@@ -253,6 +270,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Post to LinkedIn")
     parser.add_argument("text")
     parser.add_argument("--video", default="", help="Optional path to a video to attach")
+    parser.add_argument("--image", default="", help="Optional path to an image to attach")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -260,7 +278,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    result = publish_linkedin(args.text, video_path=args.video, dry_run=args.dry_run)
+    result = publish_linkedin(args.text, video_path=args.video, image_path=args.image, dry_run=args.dry_run)
     print(json.dumps(result, indent=2))
 
 

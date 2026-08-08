@@ -51,10 +51,40 @@ Check for `"session_found": true`. No browser launched, nothing posted.
 ```bash
 python -m auth.publish_x "post text"
 python -m auth.publish_x "post text" --video path/to/video.mp4
+python -m auth.publish_x "post text" --image path/to/photo.jpg
 ```
 
 No draft/review step -- a successful call posts immediately and publicly (X has no
 private/unlisted post state).
+
+## Required pattern for attaching media -- never click the raw file input
+
+`auth/publish_x.py` attaches media by calling `.set_input_files()` directly on the
+`input[type="file"]` locator, with **no click of any kind beforehand**. Confirmed live
+(2026-08-08, image attach): an earlier version first did `page.evaluate(...)` to call
+`.click()` on the hidden file input via JS, then called `set_input_files()` separately. That
+`.click()` on a real `<input type="file">` opens the actual **native OS file-picker dialog**,
+completely outside Playwright's control -- the same failure mode already documented for
+Bluesky's and LinkedIn's "Add media" buttons, just triggered a different way (via the input
+itself, not a visible button). The orphaned native dialog then silently broke the rest of the
+flow: the Post button's JS-triggered click still fired, but the browser stayed on the compose
+page. `Locator.set_input_files()` sets the files directly over Chrome DevTools Protocol and
+needs no click, and no `expect_file_chooser()` wrapper, to work -- adding either back in is a
+regression, not a safety measure.
+
+## Required pattern for images: the alt-text reminder silently blocks the post
+
+Confirmed live (2026-08-08): after the first click on "Post" with an image attached and no alt
+text, X shows a modal ("Don't forget to make your image accessible") with "Add description" /
+"Not this time" buttons. This is not cosmetic -- **the post does not submit while it's open**, and
+a script that doesn't check for it will see "still on the compose page" and wrongly conclude Post
+never fired. `auth/publish_x.py` handles this by always writing real alt text (falling back to the
+post's own text if `--alt-text` isn't passed), never by dismissing with "Not this time" -- the
+point is a genuinely accessible post, not just an unblocked script. Sequence:
+1. Click Post once.
+2. If the "Add description" button appears, click it, type the alt text into the dialog's
+   textarea/contenteditable, click "Save".
+3. Click Post again -- only this second click actually submits.
 
 ## How the publish flow finds its own post ID
 

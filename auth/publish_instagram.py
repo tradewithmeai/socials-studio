@@ -1,4 +1,4 @@
-"""Upload a video/reel to Instagram using a saved login session from the platform-login wizard.
+"""Upload a video/reel or photo to Instagram using a saved login session from the platform-login wizard.
 
 Unlike YouTube, Google-style automated-browser blocking does NOT apply here -- Instagram's own web
 upload flow was driven successfully via Playwright + a saved session in live testing. This is
@@ -14,7 +14,7 @@ fades in from black, Instagram may default the cover thumbnail to a black frame.
 before uploading, or fix the cover by hand afterward -- there is no reliable automated fix.
 
 Usage:
-    python -m auth.publish_instagram <video_path> --caption "..." [--dry-run]
+    python -m auth.publish_instagram <video_or_image_path> --caption "..." [--dry-run]
 """
 
 from __future__ import annotations
@@ -29,6 +29,12 @@ from auth.chrome_setup import ensure_chrome_installed
 from auth.login_wizard import PROFILES_DIR
 
 STEP_TIMEOUT_MS = 30_000
+
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
+
+def _media_type(path: Path) -> str:
+    return "image" if path.suffix.lower() in IMAGE_EXTENSIONS else "video"
 
 
 def _click_by_text(page: Page, text: str, tag_filter: str = "a,button,[role=link],[role=button],div[tabindex]") -> bool:
@@ -89,9 +95,10 @@ def _open_create_post_dialog(page: Page) -> None:
 
 
 def publish_instagram(video_path: str, caption: str = "", dry_run: bool = False) -> dict:
-    video_file = Path(video_path).expanduser().resolve()
-    if not video_file.is_file():
-        raise SystemExit(f"video_path not found: {video_file}")
+    media_file = Path(video_path).expanduser().resolve()
+    if not media_file.is_file():
+        raise SystemExit(f"video_path not found: {media_file}")
+    media_type = _media_type(media_file)
 
     profile_dir = PROFILES_DIR / "instagram"
     session_exists = profile_dir.exists()
@@ -100,7 +107,8 @@ def publish_instagram(video_path: str, caption: str = "", dry_run: bool = False)
         return {
             "dry_run": True,
             "platform": "instagram",
-            "would_publish": str(video_file),
+            "would_publish": str(media_file),
+            "media_type": media_type,
             "caption": caption,
             "session_found": session_exists,
             "message": (
@@ -131,7 +139,7 @@ def publish_instagram(video_path: str, caption: str = "", dry_run: bool = False)
             _open_create_post_dialog(page)
 
             file_input = page.locator('input[type="file"]')
-            file_input.first.set_input_files(str(video_file))
+            file_input.first.set_input_files(str(media_file))
             page.wait_for_timeout(2000)
 
             # Crop step -- for landscape sources, avoid the default 1:1 square crop.
@@ -141,8 +149,10 @@ def publish_instagram(video_path: str, caption: str = "", dry_run: bool = False)
             # New-post flyout above).
             crop_select = page.locator('svg[aria-label="Select Crop"]')
             if crop_select.count() > 0:
-                video_el = page.locator("video").first
-                box = video_el.bounding_box() if video_el.count() > 0 else None
+                media_el = page.locator("video").first
+                if media_el.count() == 0:
+                    media_el = page.locator('[role="dialog"] img[src^="blob:"]').first
+                box = media_el.bounding_box() if media_el.count() > 0 else None
                 if box and box["width"] > box["height"]:
                     page.evaluate("""() => {
                         const svg = document.querySelector('svg[aria-label="Select Crop"]');
@@ -227,6 +237,7 @@ def publish_instagram(video_path: str, caption: str = "", dry_run: bool = False)
                 "platform": "instagram",
                 "status": "published",
                 "url": post_url,
+                "media_type": media_type,
                 "caption": caption,
                 "caption_verify_note": "Instagram has a known bug where the caption drops on "
                 "publish even when the composer showed it correctly. Reload the post URL fresh "

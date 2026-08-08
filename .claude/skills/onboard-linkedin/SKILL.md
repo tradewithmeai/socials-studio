@@ -178,11 +178,49 @@ expected. `data-urn` gives the real `urn:li:activity:<id>` for the post.
 
 ## Cleaning up a test post
 
-From the activity feed, open the post's control menu (`aria-label` containing "control menu" or
-"More"), click "Delete post", then confirm in the dialog that appears (plain `<button>Delete</button>`
-with no aria-label -- match by exact innerText, there are multiple "Delete" buttons on screen at
-different steps so don't use a role-based query that could hit the wrong one). Verify by
-re-searching the activity feed afterward, same method as above -- don't trust the click alone.
+Confirmed working live (2026-08-08), after an earlier hand-rolled-JS version of this exact
+procedure failed silently -- use this pattern, not a manual `document.querySelectorAll` /
+innerText-matching approach:
+
+```python
+page.goto(activity_url, timeout=STEP_TIMEOUT_MS)
+page.wait_for_timeout(5000)
+
+# 1. Open the target post's "..." control menu.
+opened = page.evaluate("""(snippet) => {
+    const els = [...document.querySelectorAll('[data-urn]')];
+    const target = els.find(el => (el.innerText||'').includes(snippet));
+    if (!target) return false;
+    const menuBtn = target.querySelector(
+        'button[aria-label*="control menu" i], button[aria-label*="More" i]');
+    if (menuBtn) { menuBtn.click(); return true; }
+    return false;
+}""", "<unique text from your post>")
+
+# 2. Click "Delete post" -- use Playwright's own get_by_text, NOT a hand-rolled
+#    JS innerText/closest() match. Confirmed live: a JS version that filtered
+#    `span, div` elements with `children.length === 0` and an exact innerText
+#    match reported success (`clicked: true` was never even reached -- it
+#    just silently matched nothing) while the dropdown stayed open on screen,
+#    because LinkedIn's menu items are structured in a way that manual
+#    ancestor-walking doesn't reliably land on the right clickable node.
+#    get_by_text resolves this correctly on the first try.
+page.get_by_text("Delete post", exact=True).first.click(timeout=5000)
+page.wait_for_timeout(2500)
+
+# 3. Confirm in the dialog that appears -- likewise use get_by_role, not
+#    innerText matching. There are multiple "Delete" buttons on screen across
+#    the two steps (the menu item text is also "Delete post", not "Delete"),
+#    so exact=True on the role query is what keeps this from hitting the
+#    wrong one.
+page.get_by_role("button", name="Delete", exact=True).first.click(timeout=5000)
+page.wait_for_timeout(4000)
+```
+
+Verify by reloading the activity feed afterward and re-searching for the same snippet, same
+method as "Independent verification" above -- don't trust the click alone. This is the same
+principle the whole repo follows for every platform: a script's own success report is not
+verification.
 
 ## Known quirks
 

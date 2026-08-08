@@ -8,6 +8,7 @@ Requires: `python -m auth.login_wizard --platform x` already run successfully
 
 Usage:
     python -m auth.publish_x "post text" --video path/to/video.mp4 [--dry-run]
+    python -m auth.publish_x "post text" --image path/to/photo.jpg [--alt-text "..."] [--dry-run]
 """
 
 from __future__ import annotations
@@ -24,15 +25,43 @@ from auth.login_wizard import PROFILES_DIR
 STEP_TIMEOUT_MS = 30_000
 
 
-def publish_x(text: str, video_path: str = "", dry_run: bool = False) -> dict:
+def _click_post_button(page) -> bool:
+    return page.evaluate("""() => {
+        const btn = [...document.querySelectorAll('button')]
+            .find(b => b.innerText.trim() === 'Post' && !b.disabled);
+        if (btn) { btn.click(); return true; }
+        return false;
+    }""")
+
+
+def publish_x(
+    text: str,
+    video_path: str = "",
+    image_path: str = "",
+    alt_text: str = "",
+    dry_run: bool = False,
+) -> dict:
     if not text.strip():
         raise SystemExit("Post text is required.")
+    if video_path and image_path:
+        raise SystemExit("Pass either --video or --image, not both.")
 
-    video_file = None
+    media_file = None
+    media_type = None
     if video_path:
-        video_file = Path(video_path).expanduser().resolve()
-        if not video_file.is_file():
-            raise SystemExit(f"video_path not found: {video_file}")
+        media_file = Path(video_path).expanduser().resolve()
+        media_type = "video"
+    elif image_path:
+        media_file = Path(image_path).expanduser().resolve()
+        media_type = "image"
+    if media_file and not media_file.is_file():
+        raise SystemExit(f"{media_type}_path not found: {media_file}")
+    # X shows an accessibility reminder ("Don't forget to make your image
+    # accessible") after the first Post click whenever an image has no alt
+    # text, and it blocks the actual submit until handled. Fall back to the
+    # post text itself as a description rather than dismissing the prompt.
+    if media_type == "image" and not alt_text:
+        alt_text = text
 
     profile_dir = PROFILES_DIR / "x"
     session_exists = profile_dir.exists()
@@ -42,7 +71,8 @@ def publish_x(text: str, video_path: str = "", dry_run: bool = False) -> dict:
             "dry_run": True,
             "platform": "x",
             "text": text,
-            "video": str(video_file) if video_file else None,
+            "media_type": media_type,
+            "media": str(media_file) if media_file else None,
             "session_found": session_exists,
             "message": (
                 "Inputs are valid; no browser was launched, nothing was posted."
@@ -77,36 +107,74 @@ def publish_x(text: str, video_path: str = "", dry_run: bool = False) -> dict:
             page.keyboard.type(text, delay=15)
             page.wait_for_timeout(500)
 
-            if video_file:
-                page.evaluate("""() => {
-                    const input = document.querySelector('[data-testid="fileInput"]');
-                    if (input) input.click();
-                }""")
-                page.wait_for_timeout(500)
+            if media_file:
+                # Do NOT click the hidden <input type="file"> via JS first --
+                # confirmed live: a raw .click() on a real file input opens the
+                # actual native OS file-picker dialog, completely outside
+                # Playwright's control (same failure mode documented for
+                # Bluesky's and LinkedIn's "Add media" buttons). Locator
+                # .set_input_files() sets the files directly over CDP and does
+                # not need -- and must not be preceded by -- any click at all.
                 file_input = page.locator('input[type="file"]')
-                file_input.first.set_input_files(str(video_file))
+                file_input.first.set_input_files(str(media_file))
+                page.wait_for_timeout(1000)
 
-                for _ in range(30):
-                    processing = page.get_by_text("Processing", exact=False).count()
-                    removable = page.locator('[aria-label*="Remove"]').count()
-                    if processing == 0 and removable > 0:
-                        break
-                    page.wait_for_timeout(2000)
-                page.wait_for_timeout(3000)
+                if media_type == "video":
+                    for _ in range(30):
+                        processing = page.get_by_text("Processing", exact=False).count()
+                        removable = page.locator('[aria-label*="Remove"]').count()
+                        if processing == 0 and removable > 0:
+                            break
+                        page.wait_for_timeout(2000)
+                    page.wait_for_timeout(3000)
+                else:
+                    # Images process near-instantly -- just wait for the
+                    # thumbnail's remove control to confirm attachment.
+                    for _ in range(15):
+                        if page.locator('[aria-label*="Remove"]').count() > 0:
+                            break
+                        page.wait_for_timeout(1000)
+                    page.wait_for_timeout(1000)
 
-            clicked = page.evaluate("""() => {
-                const btn = [...document.querySelectorAll('button')]
-                    .find(b => b.innerText.trim() === 'Post' && !b.disabled);
-                if (btn) { btn.click(); return true; }
-                return false;
-            }""")
+            clicked = _click_post_button(page)
             if not clicked:
                 raise RuntimeError(
                     "Could not click Post -- likely over the character limit or a dialog is "
                     "blocking the composer. Check the browser window."
                 )
+            page.wait_for_timeout(1500)
 
-            page.wait_for_timeout(2000)
+            # Handle the alt-text/accessibility reminder if it appeared --
+            # confirmed live (2026-08-08): this dialog silently blocks the
+            # post from ever submitting until "Add description" or "Not this
+            # time" is clicked. Always fill in real alt text here.
+            add_desc = page.get_by_role("button", name="Add description")
+            if add_desc.count() > 0:
+                add_desc.first.click()
+                page.wait_for_timeout(1000)
+                alt_box = page.locator(
+                    '[role="dialog"] textarea, [role="dialog"] [contenteditable="true"]'
+                ).first
+                alt_box.click()
+                page.keyboard.type(alt_text, delay=10)
+                page.wait_for_timeout(500)
+                page.evaluate("""() => {
+                    const dlg = document.querySelector('[role="dialog"]');
+                    if (!dlg) return false;
+                    const btn = [...dlg.querySelectorAll('button')]
+                        .find(b => /^(save|done)$/i.test((b.innerText||'').trim()));
+                    if (btn) { btn.click(); return true; }
+                    return false;
+                }""")
+                page.wait_for_timeout(1000)
+
+                clicked_again = _click_post_button(page)
+                if not clicked_again:
+                    raise RuntimeError(
+                        "Could not click Post after filling in alt text -- check the browser window."
+                    )
+
+            page.wait_for_timeout(4000)
             current_url = page.url
             if "compose" in current_url:
                 raise RuntimeError(
@@ -118,7 +186,7 @@ def publish_x(text: str, video_path: str = "", dry_run: bool = False) -> dict:
                 "platform": "x",
                 "status": "posted",
                 "text": text,
-                "had_video": video_file is not None,
+                "media_type": media_type,
                 "url": None,
                 "verify_note": "Navigate to your profile and confirm the post appears; this "
                 "script does not scrape the post's own URL back out.",
@@ -133,6 +201,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Post to X (Twitter)")
     parser.add_argument("text")
     parser.add_argument("--video", default="", help="Optional path to a video to attach")
+    parser.add_argument("--image", default="", help="Optional path to an image to attach")
+    parser.add_argument(
+        "--alt-text",
+        default="",
+        help="Accessibility description for --image; defaults to the post text if omitted",
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -140,7 +214,13 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    result = publish_x(args.text, video_path=args.video, dry_run=args.dry_run)
+    result = publish_x(
+        args.text,
+        video_path=args.video,
+        image_path=args.image,
+        alt_text=args.alt_text,
+        dry_run=args.dry_run,
+    )
     print(json.dumps(result, indent=2))
 
 

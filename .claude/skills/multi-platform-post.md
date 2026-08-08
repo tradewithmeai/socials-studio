@@ -129,7 +129,7 @@ split five ways, hub = the LinkedIn report:
   Everything links here.
 - **Twitter (door-kick + meme):** *"@AnthropicAI's Mythos: #banned abroad on 'national security' 🏴‍☠️
   then crawls back tail-between-legs. I go to security-sweep my OWN app — it reverts to Opus 'for safety.'
-  First AI #censorship, brought to you by #Trump. More coming 🏴‍☠️ [hub] @YourHandle"* + the wrestling
+  First AI #censorship, brought to you by #Trump. More coming 🏴‍☠️ [hub] [self-tag]"* + the wrestling
   tag-team meme. On-topic piggyback (@AnthropicAI, #Trump, OpenAI). **Left OUT the unrelated war
   hashtag** — hijacking a live war for reach backfires.
 - **Bluesky (wine bar):** *"'Safety' on Anthropic's Fable is now so robust it won't let me audit my OWN
