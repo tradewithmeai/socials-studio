@@ -8,7 +8,7 @@ publication.
 > Socials Studio is an independent community project. It is not affiliated with, maintained by or
 > endorsed by OpenMontage.
 
-**Public beta — v0.1.0-beta.1.** Publish videos and posts to YouTube, TikTok, Instagram and X --
+**Public beta — v0.1.0-beta.1.** Publish videos and posts to YouTube, X, Bluesky, LinkedIn, Instagram and TikTok --
 see [Testing status](#testing-status) below before you point this at a real account.
 
 ---
@@ -18,7 +18,7 @@ see [Testing status](#testing-status) below before you point this at a real acco
 [OpenMontage](https://github.com/calesthio/OpenMontage) is an open-source AI video production
 pipeline. Socials Studio is an independent companion workflow for OpenMontage users: it accepts
 finished video output, helps you review the publishing details, and publishes the video to
-YouTube, TikTok, Instagram and X.
+YouTube, X, Bluesky, LinkedIn, Instagram and TikTok.
 
 This is file-based compatibility, not a technical integration -- Socials Studio has no dependency
 on OpenMontage's code and doesn't call into it. It works with a finished video file from
@@ -29,24 +29,28 @@ OpenMontage exactly the same way it would work with a finished video file from a
 1. **Create** -- Render or export your finished video from OpenMontage (or any other source).
 2. **Review** -- Point Socials Studio at the file and set the title, description, and visibility.
    Dry-run it first (`--dry-run`) to validate everything before anything actually uploads.
-3. **Publish** -- Authenticate once, then publish to YouTube, TikTok, Instagram, or X. Uploads
+3. **Publish** -- Authenticate once, then publish to YouTube, X, Bluesky, LinkedIn, Instagram or TikTok. Uploads
    default to private/draft where supported so you can review the live result yourself before
    making it public.
 
 ```
-OpenMontage export -> Socials Studio review -> publish to YouTube, TikTok, Instagram or X
+OpenMontage export -> Socials Studio review -> publish to YouTube, X, Bluesky, LinkedIn, Instagram or TikTok
 ```
 
 ## Supported platforms
 
-Publish videos and posts to YouTube, TikTok, Instagram and X.
+Publish videos and posts to YouTube, X, Bluesky, LinkedIn, Instagram and TikTok.
 
-| Platform | Login (session creation) | Publish |
-|---|---|---|
-| YouTube | Yes | Yes -- via YouTube Studio browser automation |
-| TikTok | Yes | Yes |
-| Instagram | Yes | Yes |
-| X (Twitter) | Yes | Yes |
+| Platform | How it authenticates | Publish | Notes |
+|---|---|---|---|
+| YouTube | OAuth + Data API | Yes | No browser at all. Google blocks automated sign-in, so this is the official API path. Needs your own Google Cloud OAuth client -- see setup below |
+| X (Twitter) | Saved browser session | Yes | Text, image or video |
+| Bluesky | Saved browser session | Yes | Text, image or video |
+| LinkedIn | Saved browser session | Yes | Text, image or video. Media can never be added to a post after publishing |
+| Instagram | Saved browser session | Yes | Reels (video) |
+| TikTok | OAuth + Content Posting API | Draft only | Uploads to your TikTok **inbox as a draft**; you finish and publish it by hand in the app. Deliberate -- TikTok is the most hostile platform to automation |
+
+`python doctor.py` checks all of the above and tells you what is missing.
 
 See [ROADMAP.md](ROADMAP.md) for what's next.
 
@@ -75,8 +79,9 @@ hand. `playwright install chrome` is idempotent; safe to re-run.
 
 ## Setup and authentication
 
-**YouTube is different from the other three** -- Google blocks automated browser sign-in, so it
-uses OAuth + the YouTube Data API instead. See the `onboard-youtube` skill, or run:
+**YouTube and TikTok are different from the rest** -- they use their official APIs, not a browser.
+Google blocks automated browser sign-in outright, so OAuth + the YouTube Data API is the only
+supported path. See the `onboard-youtube` skill, or run:
 
 ```bash
 python -m auth.setup_youtube_oauth
@@ -84,11 +89,11 @@ python -m auth.setup_youtube_oauth
 
 (one-time; requires your own Google Cloud OAuth client -- the skill walks through creating one).
 
-For **TikTok, Instagram, and X**, log into a platform once. A real Chrome window opens to that
+For **X, Bluesky, LinkedIn and Instagram**, log into each platform once. A real Chrome window opens to that
 platform's login page -- log in yourself, same as you normally would:
 
 ```bash
-python -m auth.login_wizard --platform tiktok
+python -m auth.login_wizard --platform x
 ```
 
 The session is saved to `profiles/<platform>/` on your machine only. It's gitignored, never
@@ -122,7 +127,7 @@ upload on YouTube yourself before flipping it public.
   command reads from `profiles/<platform>/`.
 - **Chrome install fails** -- `playwright install chrome` needs network access; check your
   connection and re-run (it's a no-op if already installed).
-- **A step doesn't match what's on screen** -- YouTube Studio's UI is not a stable public contract.
+- **A step doesn't match what's on screen** -- these platforms' UIs are not a stable public contract.
   Run with the browser visible (the default) so you can see where it diverges, and
   [file a bug report](#reporting-problems--requesting-features) with what you saw. Selectors going
   stale after a platform UI change is the single most likely failure mode for this kind of tool.
