@@ -26,3 +26,13 @@ current testing status.
 - If you're extending this to a new platform's publish flow, match the existing pattern: real
   Chrome (not bundled Chromium), safe defaults, dry-run support, and be upfront in your PR/commit
   about whether you actually ran it against a live account.
+- **Hard rule: always close every Chrome process/context you open, and verify zero remain.**
+  Never let a script exit, time out, or get interrupted while assuming the browser closed with
+  it -- it doesn't. A leftover process holds the profile lock (next run fails with "Browser is
+  already in use for ..."), and it can sit there silently for hours or days. After ANY Playwright
+  run (success, failure, or interrupted), check for real:
+  `Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'chrome' -and $_.CommandLine -match 'profiles' }`
+  If anything's still there, close the process with no `--type=` flag in its command line first
+  (that's the main browser process; closing it lets children shut down cleanly and flushes the
+  profile) -- only force-kill if a graceful close doesn't work. Confirm the count is zero before
+  moving on.

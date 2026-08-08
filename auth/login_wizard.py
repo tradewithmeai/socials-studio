@@ -1,60 +1,99 @@
-"""Interactive login wizard: open a platform's login page in real Chrome,
-let the user log in by hand, and persist the resulting session.
+"""Interactive login: sign in by hand in a PLAIN, non-automated Chrome, then
+verify the saved session with Playwright.
 
 Usage:
-    python -m auth.login_wizard --platform tiktok
+    python -m auth.login_wizard --platform x
     python -m auth.login_wizard --list
 
-Each platform gets its own persistent browser profile under
-`profiles/<platform>/`. Playwright's persistent context writes cookies and
-local storage to that directory automatically on close -- no explicit "save"
-step needed. We also snapshot `storage_state.json` alongside it, since a
-plain JSON cookie/origin dump is easier to inspect, back up, or hand to a
-headless run later than the raw profile directory.
+## Why this doesn't use Playwright to drive the login itself
 
+Confirmed live, repeatedly: attempting a login from inside a Playwright-
+controlled browser gets blocked -- Google's version of the block reads
+"This browser or app may not be secure." This is NOT about which login
+method you use (native password vs. "Sign in with Google"), and it is not
+Google-specific -- Instagram and others challenge automated logins too (SMS
+codes, "suspicious login" interstitials). The block triggers on the
+automation signals themselves (`navigator.webdriver`, the CDP control port,
+automation command-line switches, a fresh profile with no history) -- not on
+who's typing the password.
+
+The fix: **never log in from the automated browser.** This script launches a
+completely plain, human-driven Chrome process (no CDP, no automation flags --
+indistinguishable from double-clicking the Chrome icon) pointed at the
+platform's login page. You log in yourself, close the window, and only THEN
+does Playwright touch that profile -- to verify the session, and later to
+replay it for publishing. Anti-automation defenses don't apply to a session
+a human already established; the automated browser is just reusing normal
+cookies at that point.
+
+Each platform gets its own persistent profile under `profiles/<platform>/`.
 `profiles/` is gitignored -- these are live, personal logged-in sessions and
 must never be committed.
+
+YouTube and TikTok are NOT here -- both use OAuth + their official APIs
+instead (see auth/setup_youtube_oauth.py and auth/setup_tiktok_oauth.py),
+for reasons unrelated to this login-blocking issue (YouTube: Google blocks
+browser automation entirely; TikTok: a Playwright-driven account risks a
+shadow-ban even when login succeeds).
 """
 
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
-import time
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-from auth.chrome_setup import ensure_chrome_installed
+from auth.chrome_setup import ensure_chrome_installed, find_system_chrome
 from auth.platforms import PLATFORMS, get_platform
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PROFILES_DIR = REPO_ROOT / "profiles"
 
-POLL_INTERVAL_SECONDS = 2
-DEFAULT_TIMEOUT_SECONDS = 600  # 10 minutes to complete login by hand
+VERIFY_TIMEOUT_MS = 30_000
 
 
-def _is_logged_in(page, marker: str, selector: str | None) -> bool:
-    if marker in page.url:
-        return False
-    if selector is None:
-        return True
+def _manual_login_step(platform_key: str, profile_dir: Path) -> None:
+    """Launch a plain, non-automated Chrome for the user to log in by hand.
+
+    No Playwright, no CDP, no automation switches -- this subprocess call is
+    functionally identical to double-clicking the Chrome icon. Blocks until
+    the user closes every window of this Chrome instance.
+    """
+    platform = get_platform(platform_key)
+    chrome_path = find_system_chrome()
+
+    print(f"\nOpening a plain Chrome window to {platform.label}'s login page.")
+    print("Log in yourself -- 2FA included, and dismiss any cookie/consent banners while")
+    print("you're there. When you're done, CLOSE THIS CHROME WINDOW COMPLETELY")
+    print("(all its windows/tabs) to continue.\n")
+
+    process = subprocess.Popen(
+        [
+            str(chrome_path),
+            f"--user-data-dir={profile_dir}",
+            "--no-first-run",
+            platform.login_url,
+        ]
+    )
     try:
-        return page.locator(selector).first.is_visible(timeout=500)
-    except Exception:
-        return False
+        process.wait()
+    except KeyboardInterrupt:
+        process.terminate()
+        raise SystemExit("Login cancelled.") from None
 
 
-def run_wizard(platform_key: str, timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS) -> Path:
+def _verify_session(platform_key: str, profile_dir: Path) -> bool:
+    """Read-only check: is this profile actually logged in?
+
+    Navigates to the platform's HOME page, never the login page -- this is
+    just reading an already-authenticated session (or discovering it isn't
+    one), which anti-automation defenses don't block.
+    """
     platform = get_platform(platform_key)
     ensure_chrome_installed()
-
-    profile_dir = PROFILES_DIR / platform.key
-    profile_dir.mkdir(parents=True, exist_ok=True)
-
-    print(f"Opening {platform.label} login in Chrome -- log in as you normally would.")
-    print(f"Waiting up to {timeout_seconds // 60} minutes for login to complete...")
 
     with sync_playwright() as p:
         context = p.chromium.launch_persistent_context(
@@ -62,44 +101,45 @@ def run_wizard(platform_key: str, timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS
             channel="chrome",
             headless=False,
         )
-        page = context.pages[0] if context.pages else context.new_page()
-        page.goto(platform.login_url)
-
-        deadline = time.monotonic() + timeout_seconds
         try:
-            while time.monotonic() < deadline:
-                if _is_logged_in(page, platform.login_url_marker, platform.logged_in_selector):
-                    break
-                time.sleep(POLL_INTERVAL_SECONDS)
-            else:
-                context.close()
-                raise SystemExit(
-                    f"Timed out waiting for {platform.label} login after "
-                    f"{timeout_seconds}s. Re-run and try again."
-                )
-        except KeyboardInterrupt:
+            page = context.pages[0] if context.pages else context.new_page()
+            page.goto(platform.login_url, timeout=VERIFY_TIMEOUT_MS, wait_until="domcontentloaded")
+            page.wait_for_timeout(2000)
+
+            logged_in = platform.login_url_marker not in page.url
+            if logged_in and platform.logged_in_selector:
+                try:
+                    logged_in = page.locator(platform.logged_in_selector).first.is_visible(timeout=3000)
+                except Exception:
+                    logged_in = False
+        finally:
             context.close()
-            raise SystemExit("Login cancelled.") from None
 
-        # Portable snapshot alongside the persistent profile dir.
-        state_path = profile_dir / "storage_state.json"
-        context.storage_state(path=str(state_path))
-        context.close()
+    return logged_in
 
-    print(f"{platform.label} login saved to {profile_dir}")
+
+def run_wizard(platform_key: str) -> Path:
+    get_platform(platform_key)  # validates the key
+    profile_dir = PROFILES_DIR / platform_key
+    profile_dir.mkdir(parents=True, exist_ok=True)
+
+    _manual_login_step(platform_key, profile_dir)
+
+    print("Verifying the saved session...")
+    if _verify_session(platform_key, profile_dir):
+        print(f"Verified: {platform_key} is logged in. Session saved to {profile_dir}")
+    else:
+        print(
+            f"NOT verified: {platform_key} still looks logged out. "
+            "Re-run this command and make sure you complete login before closing the window."
+        )
     return profile_dir
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Platform login wizard")
+    parser = argparse.ArgumentParser(description="Platform login (manual sign-in + verification)")
     parser.add_argument("--platform", choices=sorted(PLATFORMS), help="Platform to log into")
     parser.add_argument("--list", action="store_true", help="List supported platforms")
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=DEFAULT_TIMEOUT_SECONDS,
-        help="Seconds to wait for login before giving up",
-    )
     args = parser.parse_args()
 
     if args.list or not args.platform:
@@ -109,7 +149,7 @@ def main() -> None:
         if not args.platform:
             sys.exit(0 if args.list else 1)
 
-    run_wizard(args.platform, timeout_seconds=args.timeout)
+    run_wizard(args.platform)
 
 
 if __name__ == "__main__":

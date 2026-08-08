@@ -5,12 +5,18 @@ detecting a completed login and WILL need periodic verification against the
 live site — platforms change their DOM/URLs without notice. Treat these as
 a starting point, not a guarantee.
 
-YouTube is deliberately NOT here. Google actively detects and blocks sign-in
-attempts from automation-controlled browsers ("This browser or app may not
-be secure") -- confirmed live, this is not a selector bug. YouTube auth uses
-OAuth + the YouTube Data API instead (see auth/setup_youtube_oauth.py and
-auth/publish_youtube.py), a completely different, Google-sanctioned path
-with no browser automation involved.
+YouTube and TikTok are deliberately NOT here. Both use OAuth + their
+official APIs instead (see auth/setup_youtube_oauth.py and
+auth/setup_tiktok_oauth.py) -- YouTube because Google blocks automated
+browser sign-in outright ("This browser or app may not be secure"), TikTok
+because a Playwright-driven account risks a shadow-ban even when login
+succeeds. Neither publish_youtube.py nor publish_tiktok.py touches a saved
+browser session at all.
+
+Platforms listed here (Instagram, X) are NOT immune to anti-automation
+defenses either -- see auth/login_wizard.py's module docstring. The login
+step for these must happen in a plain, non-Playwright Chrome; only a
+session a human already established gets reused by automation afterward.
 """
 
 from __future__ import annotations
@@ -32,13 +38,6 @@ class PlatformConfig:
 
 
 PLATFORMS: dict[str, PlatformConfig] = {
-    "tiktok": PlatformConfig(
-        key="tiktok",
-        label="TikTok",
-        login_url="https://www.tiktok.com/login",
-        login_url_marker="/login",
-        logged_in_selector='[data-e2e="profile-icon"]',
-    ),
     "instagram": PlatformConfig(
         key="instagram",
         label="Instagram",
@@ -52,6 +51,23 @@ PLATFORMS: dict[str, PlatformConfig] = {
         login_url="https://x.com/login",
         login_url_marker="/login",
         logged_in_selector='a[data-testid="AppTabBar_Home_Link"]',
+    ),
+    "bluesky": PlatformConfig(
+        key="bluesky",
+        label="Bluesky",
+        # Bluesky is a single-page app -- there's no separate /login URL that
+        # goes away on success, so login_url_marker below is a marker that will
+        # never match (forcing the check to rely on logged_in_selector alone).
+        login_url="https://bsky.app",
+        login_url_marker="__no_url_marker_for_bluesky__",
+        logged_in_selector='[aria-label="Compose new post"]',
+    ),
+    "linkedin": PlatformConfig(
+        key="linkedin",
+        label="LinkedIn",
+        login_url="https://www.linkedin.com/login",
+        login_url_marker="/login",
+        logged_in_selector='div[role="button"]:has-text("Start a post")',
     ),
 }
 

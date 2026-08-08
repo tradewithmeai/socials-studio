@@ -13,8 +13,51 @@ already present).
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
+from pathlib import Path
+
+# Plain, non-Playwright-managed system Chrome, used ONLY for the manual login
+# step (see login_wizard.py). Never launched with any CDP/automation switch --
+# that's the whole point. This is deliberately separate from the Playwright
+# "chrome" channel below, which IS automation-controlled and is only ever
+# pointed at an already-authenticated profile, never at a login page.
+_WINDOWS_CANDIDATES = [
+    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+    r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+    r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe",
+]
+
+
+def find_system_chrome() -> Path:
+    """Locate a plain, human-launched Chrome executable for manual login.
+
+    Raises SystemExit with install instructions if none is found -- this
+    must be a real system Chrome install, not Playwright's managed binary.
+    """
+    which = shutil.which("chrome") or shutil.which("google-chrome") or shutil.which("chrome.exe")
+    if which:
+        return Path(which)
+
+    if sys.platform == "win32":
+        import os
+
+        for candidate in _WINDOWS_CANDIDATES:
+            path = Path(os.path.expandvars(candidate))
+            if path.is_file():
+                return path
+    elif sys.platform == "darwin":
+        mac_path = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+        if mac_path.is_file():
+            return mac_path
+
+    raise SystemExit(
+        "Could not find a system Chrome install. Install Chrome from "
+        "https://www.google.com/chrome/ and try again -- the manual login "
+        "step needs a plain, non-automated Chrome, separate from Playwright's "
+        "managed browser."
+    )
 
 
 def ensure_chrome_installed() -> None:
