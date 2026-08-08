@@ -63,12 +63,14 @@ Bright; fixed with signal detection.
 
 ## Workflow
 
-1. **Get the story.** Later: read the top-rated item from the GitHub excitement API (see
-   `services/github-excitement-feed/SPEC.md`). For now: pick the most headline-worthy commit from the
-   day's `git log` across the projects.
-2. **Write** per the rules above. Produce Bluesky + Twitter copy (usually identical; only differ if the
-   count forces it).
-3. **Verify char counts** (Twitter ≤280, Bluesky ≤300).
+1. **Get the story.** Pick the most headline-worthy thing that actually happened — often the most
+   interesting commit in the day's `git log`.
+2. **Write** per the rules above. Produce Bluesky + X copy (usually identical; only differ if the
+   character count forces it).
+3. **Verify the character counts** — X ≤280 **weighted** (every URL counts 23, emoji count 2),
+   Bluesky ≤300 **literal**. Count them properly rather than eyeballing; a two-character drift
+   matters when copy sits at 274/280.
 4. **Show the user the final copy for explicit sign-off.** Never publish on inference.
-5. On go, hand to `twitter.md` + `bluesky.md` to post; log to `post_schedule.json`; record any organic
-   replies via `engagers.py`.
+5. On go, hand to `twitter.md` + `bluesky.md` to publish. Record what went out, and note anyone who
+   replies organically — they are warm leads. **Replying to them is outward-facing and needs the
+   user's explicit go.**

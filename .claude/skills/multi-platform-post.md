@@ -61,51 +61,38 @@ even when it feels obvious. It costs one line and catches exactly this kind of s
 copy gets drafted, agents get dispatched, or (as here) a platform that needed its own decision (does this
 media even fit YouTube?) gets skipped without ever being raised.
 
-## 🔗 Tracked short links — MANDATORY when linking to one of our own properties
+## 🔗 Tracked short links — worth setting up if you link to your own pages
 
-**Never post a bare destination URL for a tracked service.** Every platform gets its OWN slug so clicks
-can be attributed per platform: `https://solvx.uk/go/<service>-<platform>`
+*Optional. If you don't have redirect infrastructure, post normal links and skip this section.*
 
-### Look it up, don't guess
+**Don't post the same bare URL everywhere.** Give each platform its own redirect slug pointing at
+the same destination, with the platform baked into both the path and the UTM parameters:
 
-```bash
-py go_links.py                 # refresh + all 17 services
-py go_links.py ln              # every platform link for one service
-py go_links.py ln x            # a single slug, bare and pasteable
-py go_links.py --search bright # find a service by name
+```
+yourdomain.com/go/<service>-<platform>   →  302  →  the real page + ?utm_source=<platform>&…
 ```
 
-Single source of truth is **https://solvx.uk/go-links.json** (102 links / 17 services), generated from
-the website repo's `public/go/links.json` so the two can't drift. The service list grows — **check the
-tool, don't rely on a memorised list.**
+Suggested platform keys: `li` LinkedIn · `x` X · `bs` Bluesky · `ig` Instagram (bio) · `yt` YouTube
+description. So `shop-x` on X and `shop-li` on LinkedIn both land on the same page.
 
-⚠️ Hand-fetching the manifest needs a browser User-Agent, or you get a bot-challenge HTML page despite
-a 200 + `Content-Type: application/json`. `go_links.py` handles that.
+**Why bother:** two independent tracking layers for very little work. The redirect can be logged
+server-side (timestamp, slug, referrer), and the UTMs are picked up by the analytics on the landing
+page — so you learn both *which platform produced the click* and *what that visitor did next*.
+Neither is available from a shared bare URL, because most platforms strip or obscure the referrer.
 
-**platform keys:** `li` LinkedIn · `x` X · `bs` Bluesky · `ig` Instagram (bio) · `yt` YouTube desc ·
-`tw` Twitch panel. So `ln-x` on Twitter, `pb-li` on LinkedIn, `an-bs` on Bluesky.
-
-**Why it matters:** two tracking layers come free. Every `/go/` hit is logged first-party to
-`go-clicks.jsonl` (timestamp, slug, referrer → dashboard `go_clicks`), and the UTMs on landing are
-captured by `analytics.js` → `daily_sources`, so you get the click AND the resulting session (scroll,
-dwell, CTA) split per platform. Campaigns `linel-launch`, `gaming-launch`, `projectbright-launch` are
-registered in `seo/campaigns.json`, so the weekly SEO run auto-fills results against baseline.
+**Instagram especially.** IG clicks report as direct with no referrer, so without a tagged bio link
+they are simply invisible. IG also allows only one bio link at a time and it can only be changed by
+hand in the app — treat that slot as a deliberate choice.
 
 **Rules:**
-- Slugs are **stable public IDs**; destinations are re-pointable anytime by editing `public/go/links.json`
-  in the WEBSITE repo (which is the source of truth over any table here). 302, so no browser cache.
-- Still ONE link per post on TW/BS — the short link IS that link (see [[feedback-link-cards]]). Don't
-  add a bare `solvx.uk` alongside it.
-- **Instagram has a single bio slot** — it holds one `*-ig` slug at a time and only the operator can
-  change it, in the app. IG clicks report as direct/no-referrer, so the tagged bio link is the only
-  thing rescuing attribution. Never a bare `solvx.uk` in the bio.
-- **AI News has slugs now (`an-*` → `solvx.uk/ai-news.html`).** An earlier version of this file said
-  the AI Top 5 daily "isn't a tracked property" — that was true when only `yg`/`sf` existed and is now
-  wrong. The daily still leads with the **YouTube link** on TW/BS (the video is the payload, and the
-  one-link rule means you can't have both), but use `an-*` whenever a post points at the news hub
-  rather than a specific video.
-- Not every link needs a slug — an external article, someone else's site, a raw YouTube URL. The rule
-  is: pointing at one of OUR properties → use the slug.
+- Keep slugs **stable public IDs**, with destinations re-pointable from one config file. A campaign
+  can then change where a link goes without breaking every post that already shipped.
+- Use a **302, not a 301** — a 301 gets cached by the browser, so you lose both the click log and the
+  ability to re-point it later.
+- **Still one link per post on X and Bluesky.** The short link *is* that link; a second URL hijacks
+  the unfurl card.
+- **Not every link needs a slug.** An external article, someone else's site, a raw YouTube URL — leave
+  those alone. The rule is: pointing at something *you own* → use a tracked slug.
 
 ## Funnel + cross-promo
 

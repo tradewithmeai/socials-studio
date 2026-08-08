@@ -38,16 +38,22 @@ write/execute them.
 3. **Tailor per platform** — don't fan identical copy everywhere. Long caption for IG/LinkedIn; tighter
    for Bluesky/Twitter (respect ≤280 / ≤300). Provide each variant.
 4. **Video = silent.** On-screen text/captions must carry the story; never rely on voiceover.
-5. **Made-with-Project-Bright videos double as a live test of Project Bright** — lean into that when true.
+5. **If the post was made with your own tooling, say so** — a video produced by the thing you're
+   building is itself evidence the thing works. Lean into that when it's true.
 6. **Honesty in the pitch.** Real state of the project (e.g. "early but playable", "no audio yet").
 7. **Sign-off:** show the user final copy AND the rendered video before any publish. Never infer go.
 
 ## Workflow
 
-1. Open the project's `campaigns/<project>/plan.md` — it has goal, audience, draft copy, video brief.
-2. Fill any `[NEED FROM YOU]` gaps (URLs, CTA route) with the user.
-3. Write per-platform copy variants + finalise the (silent) video brief.
-4. If a video is needed: produce it (Project Bright, or Remotion) — publish the quick Bluesky/Twitter
-   text while it renders, drop the video posts (YouTube/IG) when ready.
+1. Establish the goal, audience, CTA and any video brief with the user before writing copy.
+2. Fill any gaps (URLs, CTA route) with the user — don't invent them.
+3. Write per-platform copy variants + finalise the video brief.
+4. If a video is needed, it can lag the text: publish the quick Bluesky/X posts while it renders and
+   follow with the video posts (YouTube/Instagram) when ready.
+   ⚠️ **Except on LinkedIn**, where media can never be added to a published post — there, text and
+   video must go out together or become two separate posts.
 5. Show the user copy + video for explicit sign-off, then hand to the platform skills to publish.
-6. Log to `post_schedule.json`; capture organic engagers via `engagers.py`.
+6. Record what went out, and note anyone who engages organically — comments, replies, quotes. Those
+   are the warmest leads a build-in-public post produces, and they are easy to lose track of.
+   ⚠️ Recording them is fine automatically; **replying, following or DMing is outward-facing and needs
+   the user's explicit go**, exactly like publishing.

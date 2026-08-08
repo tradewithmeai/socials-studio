@@ -1,144 +1,63 @@
-# Bluesky Skill
+# Skill: Post to Bluesky
 
-Playwright automation for posting and deleting on Bluesky (@yourhandle.bsky.social).
-Browser tab 0 is Bluesky — already logged in.
+Publishing runs through `auth/publish_bluesky.py`, which drives a saved browser session.
+**You do not drive the browser yourself.** Call the script.
 
-**Voice** (register + split logic in `multi-platform-post.md`): **the wine bar** — dry, clever, dev-
-focused, dense, hashtags OK. Same story as Twitter minus the rage: show the *insight / hypocrisy*.
-No shock, no politics/Trump. Geek-sensational, not loud.
-
----
-
-## Post
-
-```
-Select tab 0 (Bluesky): browser_tabs action=select index=0
-Navigate to https://bsky.app (if not already there)
-Wait 2 seconds.
-Click the "New post" compose button (top-left or fixed button with pencil icon).
-Type the post content into the textbox.
-Click "Publish" or "Post" button.
-Wait 2 seconds.
-Navigate to https://bsky.app/profile/yourhandle.bsky.social to verify.
+```bash
+python -m auth.publish_bluesky "post text"
+python -m auth.publish_bluesky "post text" --image path/to/photo.jpg
+python -m auth.publish_bluesky "post text" --video path/to/clip.mp4
+python -m auth.publish_bluesky "post text" --dry-run
 ```
 
-**Selector notes (verified 2026-06-08):**
-- Compose button: `[aria-label="Compose new post"]`
-- Text box: the composer is a single `div[contenteditable="true"]` (no testid). `fill()` works
-  cleanly. innerText shows extra `\n` between paragraphs but it renders as single blank lines —
-  that's a display artifact, not a problem.
-- Submit: `[aria-label="Publish post"]` (its text reads "Post"). ⚠️ On a POST PAGE replying, the button is `[aria-label="Publish reply"]` (verified 2026-07-07).
+Requires a saved session: `python -m auth.login_wizard --platform bluesky`.
 
-## Character limit — WRITE TO THE LIMIT (before typing)
+## What the script already handles
 
-**300 graphemes** (emoji = 1, unlike Twitter; URLs count their full literal length, NOT 23).
-Same rule as Twitter: never draft over and trim reactively — compose to fit the first time and
-*use* the budget (a well-optimised ~290 beats a thin 180). Pre-flight: count `[...text].length`
-(grapheme-ish) and confirm ≤ 300 BEFORE `fill()`; after filling, the on-screen circular counter
-should read a small positive remainder (aim 0–25 left). If over, CUT before typing — to fix a
-filled editor, select-all + Delete then retype the fitted text (don't patch in place).
+- **Attaching media** via `set_input_files()`. ⚠️ Never click an "Add media" button to open a
+  picker — that opens the native OS file dialog, which blocks everything and kills the run.
+- **Waiting for video processing** before posting.
 
-NOTE: Bluesky's 300 ≠ Twitter's 280, and the weighting differs (emoji 1 vs 2, URLs literal vs
-23). Write the Twitter version first to the tighter 280 weighted budget, then the Bluesky one
-can be slightly longer / keep a real URL if needed.
+## What YOU are responsible for — the copy
 
----
+**300 characters, counted literally** — no URL shortening, no weighting. What you type is what
+counts. (Bluesky *displays* a long URL trimmed, but the underlying link is stored in full and the
+character count uses the real text.)
 
-## Attach video / image (verified 2026-06-08)
+**One link per post.** A second URL takes the link card away from the first.
 
-```
-1. Type the text FIRST into the contenteditable.
-2. Click [aria-label="Add media to post"] — this opens the file-chooser modal state directly
-   (no overlay issue like Twitter).
-3. browser_file_upload with the ABSOLUTE path (e.g. D:\...\hermes_day3.mp4).
-4. CRITICAL — Bluesky processes video AFTER upload and shows "Processing video..." at the
-   bottom of the composer. WAIT for that text to disappear (browser_wait_for textGone
-   "Processing video", up to ~60s) before publishing. Publishing early is why a past post
-   (post-005) went out TEXT-ONLY with no video.
-5. Confirm a <video> element + [aria-label*="Remove"] exist and no "failed/error" text.
-6. Click [aria-label="Publish post"].
-7. Verify: open the post URL and confirm a <video> / play button is present — the feed-item
-   thumbnail may NOT expose a <video> tag until opened, so check the post detail page.
-```
+**Link cards attach automatically** when the post contains a URL — the script types the text with
+real keystrokes, which is what triggers detection. You do not need to click "Add link card".
 
-Video limits: Bluesky max ~60s / 50 MB. The 52s 1080×1920 mp4 fits.
+**A video and a link card are mutually exclusive.** Bluesky allows one embed. If you attach a video,
+the link stays as plain linked text in the body — that is expected, not a failure.
 
-**Upload sandbox (verified 2026-06-12):** `browser_file_upload` only accepts paths under the
-project dir (`D:\Documents\11Projects\socials-studio` or its `.playwright-mcp`). Copy external
-media (Screenshots, Screen Recordings) into the project first, then upload that copy.
+**Register:** dry, understated, slightly wry. Fewer hashtags than X — often none at all.
 
----
+## Video limits
 
-## Link card (external URL embed) — verified 2026-07-16
+The widely-quoted **"~60s / 50 MB" ceiling is wrong**, or at least not enforced here. Verified twice
+(2026-08-07 and 08-08): **67-second clips at 4.1 MB and 13.3 MB both uploaded and published without
+complaint**. Do not pre-emptively trim a clip expecting a refusal. If the composer ever does refuse
+one, record the real limit here rather than restoring a guess.
 
-For a post whose ONE link should show a rich card (e.g. a YouTube video), the card is NOT automatic
-after `fill()`:
+## Verify after posting — properly
 
-- **`fill()` skips card detection.** It sets the text but does NOT fire the input events Bluesky's
-  URL-facet detector listens for, so the **"Add link card"** suggestion never appears and you publish
-  a plain (still-clickable) link with no card. This was once mis-diagnosed as "Bluesky flaky" — it is a
-  PROCESS error, not a platform one. Do not repeat it.
-- **Correct flow:** type the URL with REAL keystrokes so detection fires — either compose the whole
-  post via `browser_type slowly:true` (pressSequentially) from an empty composer, or after filling the
-  text, retype just the URL with real keystrokes. Bluesky then shows an **"Add link card"** button
-  below the composer. Click it, WAIT for the card thumbnail to load, then Publish.
-- ONE link only (link-cards rule): a 2nd URL / bare domain hijacks the card to the wrong favicon.
-- A published post CANNOT gain a card retroactively — to add one, delete + repost with the card.
+Bluesky is the one platform with a **free, unauthenticated read API**, so verification here can be
+genuinely independent of whatever the browser claims:
 
----
-
-## Delete
-
-```
-Navigate to https://bsky.app/profile/yourhandle.bsky.social
-Wait 3 seconds.
-Find the target post using [data-testid^="feedItem"] or [data-testid^="postItem"].
-Click the three-dot "..." menu on the post.
-Select "Delete post" from the dropdown.
-Confirm deletion if prompted.
+```bash
+curl -s "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=<handle>&limit=3"
 ```
 
-**Selector notes:**
-- Post containers: `[data-testid^="feedItem"]`, `[data-testid^="postItem"]`
-- Post ID extracted from: `a[href*="/post/"]` — matches `/post/([a-z0-9]+)/`
-- Own posts: text does NOT include "reposted by" or "Reposted by"
-- Views: not exposed on Bluesky — always null
+Check the post text, the link facet, and the embed type (`app.bsky.embed.video` or
+`app.bsky.embed.external`). Prefer this over trusting a screenshot — a browser session can report
+success on a post that never landed.
 
----
+## Selector note
 
-## Scrape (engagement data)
+`[aria-label="Compose new post"]` now matches **two** elements (the home-screen button and the nav
+one), so a bare selector fails Playwright's strict mode. Scope it — `nav [aria-label="Compose new
+post"]` — or take `.first`. This also affects the `logged_in_selector` in `auth/platforms.py`.
 
-```js
-() => {
-  const results = [];
-  const posts = document.querySelectorAll('[data-testid^="feedItem"], [data-testid^="postItem"]');
-  for (const post of posts) {
-    const text = post.innerText || '';
-    if (!text || text.trim().length < 10) continue;
-    const isOwn = !text.includes('reposted by') && !text.includes('Reposted by');
-    const link = post.querySelector('a[href*="/post/"]');
-    const postId = link ? (link.href.match(/\/post\/([a-z0-9]+)/i)?.[1] || '') : '';
-    let likes = 0, comments = 0, reposts = 0, quotes = null;
-    post.querySelectorAll('button, [role="button"]').forEach(btn => {
-      const label = (btn.getAttribute('aria-label') || btn.innerText || '').toLowerCase();
-      const m = label.match(/([\d,]+)/);
-      const num = m ? parseInt(m[1].replace(/,/g, '')) : 0;
-      if (label.includes('like')) likes = Math.max(likes, num);
-      if (label.includes('repl') || label.includes('comment')) comments = Math.max(comments, num);
-      if (label.includes('repost') || label.includes('reblog')) reposts = Math.max(reposts, num);
-      if (label.includes('quote')) quotes = Math.max(quotes || 0, num);
-    });
-    results.push({ postId, isOwn, likes, comments, reposts, quotes, views: null });
-  }
-  return results;
-}
-```
-
----
-
-## Known quirks
-- Views are not available on Bluesky — store as null, do not attempt to scrape
-- Profile URL: https://bsky.app/profile/yourhandle.bsky.social
-- If tab is on Discover feed, own posts won't appear — navigate to profile first
-- Quotes (requotes) ARE available via aria-label containing "quote"
-- Tab index is 0 in the current session but may shift — use `browser_tabs list` to confirm
+Anything else: `post-troubleshooting.md`.
