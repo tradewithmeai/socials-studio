@@ -12,7 +12,7 @@ is for structured pass/fail reports, separate from bug reports for something cle
 - OS:
 - Python version:
 - Coding agent (Claude Code / OpenCode / Codex / other):
-- Platform tested (TikTok / Instagram / YouTube / X):
+- Platform tested (YouTube / X / Bluesky / LinkedIn / Instagram):
 - Video source (OpenMontage-rendered / other):
 
 **What you ran**

@@ -6,8 +6,8 @@ this develops; that's not a promise every request gets built.
 
 ## Now (v0.1.0-beta.1)
 
-- Login wizard: TikTok, Instagram, YouTube, X.
-- Publish: YouTube, TikTok, Instagram, X.
+- Login wizard: X, Bluesky, LinkedIn, Instagram.
+- Publish: YouTube, X, Bluesky, LinkedIn, Instagram.
 - Safe-by-default: `--dry-run` on publish, private/draft default where supported.
 
 ## Next, roughly in order

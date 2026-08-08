@@ -8,7 +8,7 @@ publication.
 > Socials Studio is an independent community project. It is not affiliated with, maintained by or
 > endorsed by OpenMontage.
 
-**Public beta — v0.1.0-beta.1.** Publish videos and posts to YouTube, X, Bluesky, LinkedIn, Instagram and TikTok --
+**Public beta — v0.1.0-beta.1.** Publish videos and posts to YouTube, X, Bluesky, LinkedIn and Instagram --
 see [Testing status](#testing-status) below before you point this at a real account.
 
 ---
@@ -18,7 +18,7 @@ see [Testing status](#testing-status) below before you point this at a real acco
 [OpenMontage](https://github.com/calesthio/OpenMontage) is an open-source AI video production
 pipeline. Socials Studio is an independent companion workflow for OpenMontage users: it accepts
 finished video output, helps you review the publishing details, and publishes the video to
-YouTube, X, Bluesky, LinkedIn, Instagram and TikTok.
+YouTube, X, Bluesky, LinkedIn and Instagram.
 
 This is file-based compatibility, not a technical integration -- Socials Studio has no dependency
 on OpenMontage's code and doesn't call into it. It works with a finished video file from
@@ -29,17 +29,17 @@ OpenMontage exactly the same way it would work with a finished video file from a
 1. **Create** -- Render or export your finished video from OpenMontage (or any other source).
 2. **Review** -- Point Socials Studio at the file and set the title, description, and visibility.
    Dry-run it first (`--dry-run`) to validate everything before anything actually uploads.
-3. **Publish** -- Authenticate once, then publish to YouTube, X, Bluesky, LinkedIn, Instagram or TikTok. Uploads
+3. **Publish** -- Authenticate once, then publish to YouTube, X, Bluesky, LinkedIn or Instagram. Uploads
    default to private/draft where supported so you can review the live result yourself before
    making it public.
 
 ```
-OpenMontage export -> Socials Studio review -> publish to YouTube, X, Bluesky, LinkedIn, Instagram or TikTok
+OpenMontage export -> Socials Studio review -> publish to YouTube, X, Bluesky, LinkedIn or Instagram
 ```
 
 ## Supported platforms
 
-Publish videos and posts to YouTube, X, Bluesky, LinkedIn, Instagram and TikTok.
+Publish videos and posts to YouTube, X, Bluesky, LinkedIn and Instagram.
 
 | Platform | How it authenticates | Publish | Notes |
 |---|---|---|---|
@@ -48,7 +48,6 @@ Publish videos and posts to YouTube, X, Bluesky, LinkedIn, Instagram and TikTok.
 | Bluesky | Saved browser session | Yes | Text, image or video |
 | LinkedIn | Saved browser session | Yes | Text, image or video. Media can never be added to a post after publishing |
 | Instagram | Saved browser session | Yes | Reels (video) |
-| TikTok | OAuth + Content Posting API | Draft only | Uploads to your TikTok **inbox as a draft**; you finish and publish it by hand in the app. Deliberate -- TikTok is the most hostile platform to automation |
 
 `python doctor.py` checks all of the above and tells you what is missing.
 
@@ -56,8 +55,8 @@ See [ROADMAP.md](ROADMAP.md) for what's next.
 
 ## Testing status
 
-This beta has been **developed with Claude Code**. Publishing has been tested for YouTube,
-TikTok, Instagram and X, including with OpenMontage-rendered video.
+This beta has been **developed with Claude Code**. Publishing has been tested for YouTube, X,
+Bluesky, LinkedIn and Instagram, including with OpenMontage-rendered video.
 
 This is exactly what the beta is for. If you run this against a real account -- with OpenMontage
 output or anything else -- please [file a beta test report](#reporting-problems--requesting-features)
@@ -79,9 +78,8 @@ hand. `playwright install chrome` is idempotent; safe to re-run.
 
 ## Setup and authentication
 
-**YouTube and TikTok are different from the rest** -- they use their official APIs, not a browser.
-Google blocks automated browser sign-in outright, so OAuth + the YouTube Data API is the only
-supported path. See the `onboard-youtube` skill, or run:
+**YouTube is different from the rest** -- it uses the official Data API, not a browser at all.
+Google blocks automated browser sign-in outright, so OAuth is the only supported path. See the `onboard-youtube` skill, or run:
 
 ```bash
 python -m auth.setup_youtube_oauth

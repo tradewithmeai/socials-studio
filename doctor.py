@@ -29,8 +29,8 @@ REPO_ROOT = Path(__file__).resolve().parent
 PROFILES_DIR = REPO_ROOT / "profiles"
 YOUTUBE_TOKEN = PROFILES_DIR / "youtube" / "token.json"
 
-# Platforms that use a saved browser session. YouTube and TikTok are deliberately absent:
-# both use OAuth + their official APIs and never touch a browser profile.
+# Platforms that use a saved browser session. YouTube is deliberately absent: it uses
+# OAuth + the official Data API and never touches a browser profile.
 BROWSER_PLATFORMS = ["x", "instagram", "bluesky", "linkedin"]
 
 PASS, WARN, FAIL, SKIP = "PASS", "WARN", "FAIL", "SKIP"

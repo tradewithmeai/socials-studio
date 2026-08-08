@@ -10,7 +10,7 @@ current testing status.
 - `auth/publish_youtube.py` -- the only publish path implemented so far. Uses OAuth + the YouTube
   Data API, NOT browser automation -- Google blocks automated sign-in. Onboarding this from
   scratch goes through `.claude/skills/onboard-youtube/SKILL.md`, not the login wizard.
-- `.claude/skills/platform-login/SKILL.md` -- the browser-login wizard for TikTok/Instagram/X
+- `.claude/skills/platform-login/SKILL.md` -- the browser-login wizard for X/Bluesky/LinkedIn/Instagram
   (not YouTube); read it before driving a login on someone's behalf.
 
 ## Rules for an agent operating here
