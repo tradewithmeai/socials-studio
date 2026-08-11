@@ -143,6 +143,8 @@ def main() -> None:
     if args.list or not args.platform:
         print("Supported platforms:")
         for key, cfg in sorted(PLATFORMS.items()):
+            if cfg.dormant:
+                continue
             print(f"  {key:12s} {cfg.label}")
         if not args.platform:
             sys.exit(0 if args.list else 1)

@@ -4,11 +4,13 @@ Publishing runs through `auth/publish_linkedin.py`, which drives a saved browser
 **You do not drive the browser yourself.** Call the script.
 
 ```bash
-python -m auth.publish_linkedin "post text"
-python -m auth.publish_linkedin "post text" --image path/to/photo.jpg
-python -m auth.publish_linkedin "post text" --video path/to/clip.mp4
-python -m auth.publish_linkedin "post text" --dry-run
+python -m auth.publish_linkedin "post text" --confirm-publish
+python -m auth.publish_linkedin "post text" --image path/to/photo.jpg --confirm-publish
+python -m auth.publish_linkedin "post text" --video path/to/clip.mp4 --confirm-publish
+python -m auth.publish_linkedin "post text"    # validates only -- the default, no flags needed
 ```
+
+Safe by default: every call above validates only unless `--confirm-publish` is present.
 
 Requires a saved session: `python -m auth.login_wizard --platform linkedin`.
 

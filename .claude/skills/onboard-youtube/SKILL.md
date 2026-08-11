@@ -54,7 +54,10 @@ python -m auth.setup_youtube_oauth
 
 This opens a **real, non-automated** browser window to Google's actual consent screen -- the user
 clicks through and approves it themselves, same as installing any app that wants YouTube access.
-On success it writes `profiles/youtube/token.json` (gitignored, never commit it).
+On success it writes `profiles/youtube/token.json` (gitignored, never commit it). Only the
+`youtube.upload` and `youtube.readonly` scopes are requested -- see
+[PRIVACY.md](../../../PRIVACY.md) for why, and what to do if a token from before this scope was
+narrowed needs re-authorizing.
 
 ### Verify before a real publish
 
@@ -63,12 +66,23 @@ python -m auth.publish_youtube <video.mp4> --title "..." --dry-run
 ```
 
 Check the JSON output: `"token_found": true` and no error. This makes no API call and uploads
-nothing -- safe to run freely.
+nothing -- safe to run freely, and also the default with no flags at all.
 
 ### First real publish
 
+A real upload requires three things beyond a dry run: `--confirm-publish` (the general safe-by-
+default gate every publisher in this repo uses), and two YouTube-specific requirements from the
+YouTube API Services Terms of Service -- exactly one of `--made-for-kids` / `--not-made-for-kids`
+(mutually exclusive; argparse itself rejects passing both, and a real upload refuses to proceed if
+neither is given), and `--acknowledge-upload-terms`. The exact required upload notice
+(`auth.publish_youtube.UPLOAD_TERMS_NOTICE`) prints **unconditionally** on every real-upload
+attempt, whether or not `--acknowledge-upload-terms` is already set -- so it can never be a flag
+that just silently suppresses a notice nobody saw. Actually show that printed notice to the user
+and get their real answer on Made for Kids -- don't just add the flags to satisfy the CLI.
+
 ```bash
-python -m auth.publish_youtube <video.mp4> --title "..." --description "..." --tags "a,b,c" --visibility private
+python -m auth.publish_youtube <video.mp4> --title "..." --description "..." --tags "a,b,c" \
+    --visibility private --not-made-for-kids --acknowledge-upload-terms --confirm-publish
 ```
 
 Defaults to `--visibility private` if omitted. Only pass `--visibility public` once the user has
@@ -81,7 +95,9 @@ explicitly confirmed they want it live.
 | `UnicodeDecodeError` in a background thread, mentions `cp1252` | A subprocess call captured text output without specifying an encoding, and Windows' default codepage can't decode Playwright's Unicode box-drawing output | Already fixed in `auth/chrome_setup.py` (`encoding="utf-8", errors="replace"`). If it recurs in a new subprocess call on Windows, add the same. |
 | `UnicodeEncodeError` printing search/API results, mentions an emoji like `\U0001f534` | Windows console (cp1252) can't print raw Unicode/emoji from API response text | Don't print raw API text directly in a Windows console script; strip non-ASCII or set `PYTHONIOENCODING=utf-8` first. |
 | OAuth consent flow fails / "access blocked" | Consent screen still in Testing mode | Publish the app in Google Cloud Console -> OAuth consent screen (see step 5 above). |
-| Token exists but API calls fail with a scope error | Token was issued for different scopes than `auth.publish_youtube.SCOPES` | Re-run `python -m auth.setup_youtube_oauth` to get a fresh token with the current scopes. |
+| Token exists but API calls fail with a scope error | Token was issued for different scopes than `auth.publish_youtube.SCOPES` -- this happens for real if you authorized before the scope was narrowed in v0.1.0-beta.2 (dropped the broad `youtube` manage scope) | Delete `profiles/youtube/token.json` and re-run `python -m auth.setup_youtube_oauth` to get a fresh token with the current, minimal scopes. |
+| Real publish exits with "requires --made-for-kids" or "--acknowledge-upload-terms" | Both are required for a real upload, enforced in code, not just docs -- neither is needed for `--dry-run` | Show the printed notice to the user, get their answer on Made for Kids, then pass `--acknowledge-upload-terms` and exactly one of `--made-for-kids` / `--not-made-for-kids`. |
+| `error: argument --not-made-for-kids: not allowed with argument --made-for-kids` | Both flags were passed together | Pass exactly one -- they're mutually exclusive by design, not a bug. |
 | `No saved YouTube token found` | `profiles/youtube/token.json` doesn't exist | Run the one-time setup above first. |
 
 ## Cleaning up a test video

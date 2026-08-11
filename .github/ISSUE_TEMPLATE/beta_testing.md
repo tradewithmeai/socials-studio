@@ -12,14 +12,14 @@ is for structured pass/fail reports, separate from bug reports for something cle
 - OS:
 - Python version:
 - Coding agent (Claude Code / OpenCode / Codex / other):
-- Platform tested (YouTube / X / Bluesky / LinkedIn / Instagram):
+- Platform tested (YouTube / Bluesky / LinkedIn / Instagram):
 - Video source (OpenMontage-rendered / other):
 
 **What you ran**
 - [ ] Installation (`pip install -r requirements.txt`, `playwright install chrome`) -- worked?
 - [ ] `python -m auth.login_wizard --platform ...` -- authentication worked?
-- [ ] `python -m auth.publish_youtube ... --dry-run`
-- [ ] `python -m auth.publish_youtube ...` (live) -- YouTube publication succeeded?
+- [ ] `python -m auth.publish_youtube ...` (validates only -- the default, no flags needed)
+- [ ] `python -m auth.publish_youtube ... --made-for-kids ... --acknowledge-upload-terms --confirm-publish` (live) -- YouTube publication succeeded?
 - [ ] Something else:
 
 **Outcome**

@@ -4,9 +4,12 @@ Publishing runs through `auth/publish_instagram.py`, which drives a saved browse
 **You do not drive the browser yourself.** Call the script.
 
 ```bash
-python -m auth.publish_instagram path/to/video.mp4 --caption "your caption"
-python -m auth.publish_instagram path/to/video.mp4 --caption "..." --dry-run
+python -m auth.publish_instagram path/to/video.mp4 --caption "your caption" --confirm-publish
+python -m auth.publish_instagram path/to/video.mp4 --caption "..."    # validates only -- the default
 ```
+
+Safe by default: the second form above validates only, launching nothing, even without
+`--dry-run`. `--confirm-publish` is required to actually post.
 
 Video only — this posts reels. Requires `python -m auth.login_wizard --platform instagram`.
 

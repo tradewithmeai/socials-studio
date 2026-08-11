@@ -32,6 +32,10 @@ class PlatformConfig:
     # Optional: a selector that only appears once logged in. Checked in
     # addition to the URL marker when present — more reliable, verify first.
     logged_in_selector: str | None = None
+    # Not advertised in this release's docs/CLI listing (see .claude/dormant/README.md
+    # for why), but left fully functional -- get_platform() and the login wizard still
+    # work for it if invoked explicitly by key. Flip back to False to reinstate.
+    dormant: bool = False
 
 
 PLATFORMS: dict[str, PlatformConfig] = {
@@ -48,6 +52,7 @@ PLATFORMS: dict[str, PlatformConfig] = {
         login_url="https://x.com/login",
         login_url_marker="/login",
         logged_in_selector='a[data-testid="AppTabBar_Home_Link"]',
+        dormant=True,
     ),
     "bluesky": PlatformConfig(
         key="bluesky",

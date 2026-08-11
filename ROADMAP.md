@@ -4,11 +4,15 @@ This is a public beta. Direction here is driven by real feedback, not a fixed sp
 [CONTRIBUTING.md](CONTRIBUTING.md) for how to weigh in. Substantive feedback will be considered as
 this develops; that's not a promise every request gets built.
 
-## Now (v0.1.0-beta.1)
+## Now (v0.1.0-beta.2)
 
-- Login wizard: X, Bluesky, LinkedIn, Instagram.
-- Publish: YouTube, X, Bluesky, LinkedIn, Instagram.
-- Safe-by-default: `--dry-run` on publish, private/draft default where supported.
+- Login wizard: Bluesky, LinkedIn, Instagram.
+- Publish: YouTube, Bluesky, LinkedIn, Instagram.
+- Safe-by-default: every publisher validates only unless `--confirm-publish` is explicitly
+  passed; `--dry-run` remains available as an explicit way to request the same thing.
+- X (Twitter) is not presented as a supported platform in this release -- see
+  [CHANGELOG.md](CHANGELOG.md). The implementation (`auth/publish_x.py`) is untouched and
+  functional; its future is undecided.
 
 ## Next, roughly in order
 

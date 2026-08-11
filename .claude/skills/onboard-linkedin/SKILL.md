@@ -30,16 +30,19 @@ waits for the window to close, then verifies the session.
 ### Verify before a real publish
 
 ```bash
-python -m auth.publish_linkedin "test text" --dry-run
+python -m auth.publish_linkedin "test text"
 ```
 
-Check for `"session_found": true`. No browser launched, nothing posted.
+Safe by default -- this validates only and launches nothing even without `--dry-run`. Check for
+`"session_found": true`.
 
 ### Real publish
 
+`--confirm-publish` is required -- without it, this only validates, same as above:
+
 ```bash
-python -m auth.publish_linkedin "post text"
-python -m auth.publish_linkedin "post text" --video path/to/video.mp4
+python -m auth.publish_linkedin "post text" --confirm-publish
+python -m auth.publish_linkedin "post text" --video path/to/video.mp4 --confirm-publish
 ```
 
 ⚠️ **This publishes immediately** -- there is no draft/review step once Post is clicked.

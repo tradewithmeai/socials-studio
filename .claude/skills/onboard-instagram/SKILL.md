@@ -31,15 +31,18 @@ window to close, then verifies the session.
 ## Verify before a real publish
 
 ```bash
-python -m auth.publish_instagram video.mp4 --caption "test" --dry-run
+python -m auth.publish_instagram video.mp4 --caption "test"
 ```
 
-Check for `"session_found": true`. No browser launched, nothing uploaded.
+Safe by default -- this validates only and launches nothing even without `--dry-run`. Check for
+`"session_found": true`.
 
 ## Real publish
 
+`--confirm-publish` is required -- without it, this only validates, same as above:
+
 ```bash
-python -m auth.publish_instagram video.mp4 --caption "post caption"
+python -m auth.publish_instagram video.mp4 --caption "post caption" --confirm-publish
 ```
 
 ## Required patterns for the upload flow

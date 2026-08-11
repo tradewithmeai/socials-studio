@@ -6,9 +6,14 @@ Playwright + a saved session in live testing, including with an attached video.
 Requires: `python -m auth.login_wizard --platform x` already run successfully
 (profiles/x/ must exist with a logged-in session).
 
+Safe by default: this validates and returns without touching a browser unless you pass
+`--confirm-publish` (CLI) or `confirm_publish=True` (library call). `--dry-run` is an explicit,
+equivalent way to request the same validate-only behavior, and always wins if both are passed.
+
 Usage:
-    python -m auth.publish_x "post text" --video path/to/video.mp4 [--dry-run]
-    python -m auth.publish_x "post text" --image path/to/photo.jpg [--alt-text "..."] [--dry-run]
+    python -m auth.publish_x "post text" --video path/to/video.mp4 --confirm-publish
+    python -m auth.publish_x "post text" --image path/to/photo.jpg --alt-text "..." --confirm-publish
+    python -m auth.publish_x "post text" --dry-run   # validate only -- also the default with no flags
 """
 
 from __future__ import annotations
@@ -21,6 +26,7 @@ from playwright.sync_api import sync_playwright
 
 from auth.chrome_setup import ensure_chrome_installed
 from auth.login_wizard import PROFILES_DIR
+from auth.publish_safety import NOT_PUBLISHED_NOTE, should_publish
 
 STEP_TIMEOUT_MS = 30_000
 
@@ -40,7 +46,10 @@ def publish_x(
     image_path: str = "",
     alt_text: str = "",
     dry_run: bool = False,
+    confirm_publish: bool = False,
 ) -> dict:
+    do_publish = should_publish(dry_run=dry_run, confirm_publish=confirm_publish)
+
     if not text.strip():
         raise SystemExit("Post text is required.")
     if video_path and image_path:
@@ -66,7 +75,7 @@ def publish_x(
     profile_dir = PROFILES_DIR / "x"
     session_exists = profile_dir.exists()
 
-    if dry_run:
+    if not do_publish:
         return {
             "dry_run": True,
             "platform": "x",
@@ -75,10 +84,13 @@ def publish_x(
             "media": str(media_file) if media_file else None,
             "session_found": session_exists,
             "message": (
-                "Inputs are valid; no browser was launched, nothing was posted."
-                if session_exists
-                else "Inputs are valid, but no saved X session was found -- "
-                "run `python -m auth.login_wizard --platform x` before a real post."
+                (NOT_PUBLISHED_NOTE if not dry_run else "Dry run requested explicitly.")
+                + (
+                    " No browser was launched, nothing was posted."
+                    if session_exists
+                    else " Also: no saved X session was found -- "
+                    "run `python -m auth.login_wizard --platform x` before a real post."
+                )
             ),
         }
 
@@ -183,6 +195,7 @@ def publish_x(
                 )
 
             result = {
+                "dry_run": False,
                 "platform": "x",
                 "status": "posted",
                 "text": text,
@@ -210,7 +223,12 @@ def main() -> None:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Validate inputs and print what would happen -- no browser, no post.",
+        help="Explicitly validate only -- this is also the default with no flags at all.",
+    )
+    parser.add_argument(
+        "--confirm-publish",
+        action="store_true",
+        help="Required to actually post for real. Without it, this only validates.",
     )
     args = parser.parse_args()
 
@@ -220,6 +238,7 @@ def main() -> None:
         image_path=args.image,
         alt_text=args.alt_text,
         dry_run=args.dry_run,
+        confirm_publish=args.confirm_publish,
     )
     print(json.dumps(result, indent=2))
 

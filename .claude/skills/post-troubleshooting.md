@@ -40,7 +40,7 @@ If a dialog is already open, nothing else will work until a human closes it.
 
 | # | Cause | Tell | Fix |
 |---|---|---|---|
-| C1 | **Over the character limit** (most common) | Counter shows a negative number; overflow highlighted red | Trim. On X every URL costs **23** regardless of length and emoji cost 2; Bluesky counts literally to 300; LinkedIn 3,000 |
+| C1 | **Over the character limit** (most common) | Counter shows a negative number; overflow highlighted red | Trim. Bluesky counts literally to 300 graphemes; LinkedIn to 3,000 |
 | C2 | **Media still processing** | Progress bar not complete, spinner on the thumbnail | Wait. A disabled button during upload means *processing*, not error — a 67s video can take ~45s |
 | C3 | **A modal is on top** | A dialog covers the composer | Handle it with a **real** click. A scripted `.click()` frequently fails to fire the site's handler |
 | C4 | **Editor state didn't register** | Counter reads 0 despite visible text | Clear and retype with real keystrokes, not `fill()` |
@@ -51,9 +51,13 @@ An "Upgrade to Premium" nag is **not** a blocker — it is an upsell. The blocke
 
 | # | Cause | Tell | Fix |
 |---|---|---|---|
-| D1 | **X's alt-text reminder blocked the submit** | "Don't forget to make your image accessible" | `publish_x.py` handles this by filling in a description. If it recurs, the dialog's buttons changed |
 | D2 | **Pressing Escape opened a "Save/Discard" sheet** stacked on another dialog | Two confirmation sheets present | Never press Escape to dismiss a typeahead. Target buttons by accessible name |
 | D3 | **Content silently filtered** | Nothing on the profile after several checks; a text-only version works | Try without the link, or move the link to a reply |
+
+(D1 was X-specific and moved to `.claude/dormant/x-troubleshooting-symptoms.md` -- X is not a
+supported platform in this release. Numbering kept as D2/D3 rather than renumbered, since nothing
+else in this repo references D1 by number and renumbering existing IDs risks a future reader
+misreading a stale external note.)
 
 ## Symptom E — Instagram reel published but the caption is empty
 
@@ -112,12 +116,6 @@ holds it.
 
 This reads as "logged out" or "auth broken" and is **neither** — it is a stale process. Close the
 other run. Don't kill processes blind while a publish may be in flight.
-
-## Symptom K — the post reached almost nobody (X)
-
-Check whether the text **begins with `@handle`**. X classifies that as a *reply*: it skips the Posts
-tab and only reaches people following both accounts. Reorder the sentence. This is a reach failure,
-not a posting failure, so nothing will look wrong.
 
 ---
 

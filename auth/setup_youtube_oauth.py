@@ -19,6 +19,12 @@ Run:
 Opens a browser to Google's real consent screen (not automated -- you click
 through it yourself, same as installing any app that wants YouTube access).
 On approval, the resulting token is saved to profiles/youtube/token.json.
+
+SCOPES below must match auth.publish_youtube.SCOPES exactly, or token refresh raises a "scope
+has changed" error -- deliberately minimal (upload + readonly only, see that module for why). If
+you're re-running this after a prior version of this file requested a broader scope set, delete
+profiles/youtube/token.json first: a token issued under the old scopes won't just quietly narrow
+itself, it fails on refresh.
 """
 
 from __future__ import annotations
@@ -29,7 +35,6 @@ from pathlib import Path
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/youtube.readonly",
-    "https://www.googleapis.com/auth/youtube",
 ]
 
 REPO_ROOT = Path(__file__).resolve().parent.parent

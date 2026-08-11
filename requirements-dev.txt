@@ -1,0 +1,3 @@
+# Test/lint dependencies -- not needed to run the tool itself, only to work on it.
+# Install with: pip install -r requirements.txt -r requirements-dev.txt
+pytest>=8.0,<10.0

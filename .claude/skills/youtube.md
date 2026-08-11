@@ -9,10 +9,20 @@ expiry beyond the token.
 
 ```bash
 python -m auth.publish_youtube path/to/video.mp4 \
-    --title "..." --description "..." --tags "a,b,c" --visibility public
+    --title "..." --description "..." --tags "a,b,c" --visibility public \
+    --not-made-for-kids --acknowledge-upload-terms --confirm-publish
 
-python -m auth.publish_youtube path/to/video.mp4 --title "..." --dry-run
+python -m auth.publish_youtube path/to/video.mp4 --title "..."   # validates only -- the default
 ```
+
+Safe by default: the second form validates only. A real upload additionally requires exactly one
+of `--made-for-kids` / `--not-made-for-kids` (mutually exclusive -- argparse itself rejects both
+together, and neither is inferred or defaulted) and `--acknowledge-upload-terms` -- both required
+by the YouTube API Services Terms of Service, Section 9.1, and enforced in code (not just
+documented). The required upload notice prints **unconditionally** on every real-upload attempt,
+even if `--acknowledge-upload-terms` is already set -- it's never just a flag that suppresses a
+notice nobody saw. Actually show it to the user and get their real answer on Made for Kids before
+passing either flag.
 
 Requires `python -m auth.setup_youtube_oauth` to have been run, producing
 `profiles/youtube/token.json`.
