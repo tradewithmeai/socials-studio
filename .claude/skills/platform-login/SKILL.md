@@ -1,6 +1,6 @@
 ---
 name: platform-login
-description: Log into a social platform (Instagram, X, Bluesky, LinkedIn) once via a plain, non-automated Chrome window, saving the session so future posts don't require re-auth. Does NOT cover YouTube or TikTok -- see onboard-youtube instead; TikTok onboarding is not active. Use when the user asks to connect/log in/authenticate a platform, or when a publish attempt fails because no saved session exists for that platform.
+description: Log into a social platform (Instagram, X, Bluesky, LinkedIn) once via a plain, non-automated Chrome window, saving the session so future posts don't require re-auth. Does NOT cover YouTube -- see onboard-youtube instead. Use when the user asks to connect/log in/authenticate a platform, or when a publish attempt fails because no saved session exists for that platform.
 ---
 
 # Platform login wizard
@@ -57,7 +57,6 @@ with `python -m auth.login_wizard --list`.
 
 **YouTube is NOT in this list, deliberately.** It uses OAuth + the Data API
 instead of browser login entirely -- see the `onboard-youtube` skill.
-**TikTok is also not active** -- onboarding it is deferred.
 
 ## Notes for the agent
 

@@ -30,11 +30,9 @@ Each platform gets its own persistent profile under `profiles/<platform>/`.
 `profiles/` is gitignored -- these are live, personal logged-in sessions and
 must never be committed.
 
-YouTube and TikTok are NOT here -- both use OAuth + their official APIs
-instead (see auth/setup_youtube_oauth.py and auth/setup_tiktok_oauth.py),
-for reasons unrelated to this login-blocking issue (YouTube: Google blocks
-browser automation entirely; TikTok: a Playwright-driven account risks a
-shadow-ban even when login succeeds).
+YouTube is NOT here -- it uses OAuth + the official Data API instead (see
+auth/setup_youtube_oauth.py), for reasons unrelated to this login-blocking
+issue: Google blocks browser automation entirely.
 """
 
 from __future__ import annotations

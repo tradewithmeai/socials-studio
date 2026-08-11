@@ -5,6 +5,3 @@ playwright>=1.47
 google-api-python-client>=2.100
 google-auth-oauthlib>=1.2
 google-auth-httplib2>=0.2
-
-# TikTok publish (OAuth + Content Posting API, inbox-draft upload)
-requests>=2.31

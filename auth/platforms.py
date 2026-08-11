@@ -5,13 +5,10 @@ detecting a completed login and WILL need periodic verification against the
 live site — platforms change their DOM/URLs without notice. Treat these as
 a starting point, not a guarantee.
 
-YouTube and TikTok are deliberately NOT here. Both use OAuth + their
-official APIs instead (see auth/setup_youtube_oauth.py and
-auth/setup_tiktok_oauth.py) -- YouTube because Google blocks automated
-browser sign-in outright ("This browser or app may not be secure"), TikTok
-because a Playwright-driven account risks a shadow-ban even when login
-succeeds. Neither publish_youtube.py nor publish_tiktok.py touches a saved
-browser session at all.
+YouTube is deliberately NOT here. It uses OAuth + the official Data API
+instead (see auth/setup_youtube_oauth.py) -- Google blocks automated
+browser sign-in outright ("This browser or app may not be secure"), so
+publish_youtube.py never touches a saved browser session at all.
 
 Platforms listed here (Instagram, X) are NOT immune to anti-automation
 defenses either -- see auth/login_wizard.py's module docstring. The login

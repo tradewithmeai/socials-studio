@@ -11,8 +11,11 @@ publication.
 **Public beta — v0.1.0-beta.1.** Publish videos and posts to YouTube, X, Bluesky, LinkedIn and Instagram --
 see [Testing status](#testing-status) below before you point this at a real account.
 
-> **Using a coding agent (Claude Code or similar)?** Have it read [AGENTS.md](AGENTS.md) first --
-> it's a guided tour built for agents, not humans.
+> **This beta is built and tested with [Claude Code](https://claude.com/claude-code)** -- it's the
+> only coding agent this has been validated with so far (see
+> [Testing status](#testing-status)). Using Claude Code? Have it read [AGENTS.md](AGENTS.md)
+> first -- it's a guided tour built for agents, not humans. Everything here also works driven by
+> hand, with no agent at all.
 
 ---
 
