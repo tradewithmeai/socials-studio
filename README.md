@@ -43,6 +43,12 @@ OpenMontage exactly the same way it would work with a finished video file from a
 OpenMontage export -> Socials Studio review -> publish to YouTube, X, Bluesky, LinkedIn or Instagram
 ```
 
+If you're using Claude Code and the video came from OpenMontage, point it at the
+`openmontage-context` skill before asking it to write your caption or description -- OpenMontage's
+own pipeline writes out the video's script, intended tone, and target audience as plain JSON next
+to the render, so copy can be grounded in what the video actually says instead of guessed from the
+filename.
+
 ## Supported platforms
 
 Publish videos and posts to YouTube, X, Bluesky, LinkedIn and Instagram.

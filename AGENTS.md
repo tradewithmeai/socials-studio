@@ -113,6 +113,14 @@ them supports `--dry-run` (validates inputs, launches nothing, uploads nothing) 
 before a real publish. `auth/login_wizard.py` and `auth/platforms.py` are the login-side plumbing
 behind stops 2–7, if you need to see how a platform's login is detected.
 
+### Stop 9 — `.claude/skills/openmontage-context/SKILL.md`, if the video came from OpenMontage
+
+If you're about to write publish copy for a video that came from OpenMontage, use this skill
+first. OpenMontage's own pipeline writes plain JSON artifacts alongside the render -- the actual
+script, the intended tone and audience, the real duration and resolution -- so you don't have to
+guess at any of that from the filename. Read them, then write copy that actually matches the
+video, instead of inventing framing from scratch.
+
 ### What you can actually do here
 
 - Publish a finished video to YouTube with title, description, tags, and visibility.
