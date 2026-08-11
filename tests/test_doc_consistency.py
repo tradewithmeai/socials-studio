@@ -72,3 +72,32 @@ def test_privacy_and_security_docs_exist_and_are_linked_from_readme():
 def test_changelog_exists_and_mentions_current_version():
     changelog = _read("CHANGELOG.md")
     assert "v0.1.0-beta.2" in changelog
+
+
+def test_no_stale_made_for_kids_single_flag_syntax():
+    """The real interface is two mutually exclusive flags, --made-for-kids /
+    --not-made-for-kids -- never a single flag that takes a true/false value. That older
+    single-flag form (`--made-for-kids {true,false}`, or `--made-for-kids false` as a literal
+    value-taking example) was replaced everywhere once; this test is here so it can't quietly
+    come back in a future doc edit or error message without failing CI.
+
+    Scans every actively-shipped .md/.py/.html/.yml file (skips .claude/dormant/, which is
+    deliberately preserved historical material, and this test file's own docstring/source)."""
+    stale_patterns = [
+        re.compile(r"--made-for-kids\s*\{true,false\}", re.IGNORECASE),
+        re.compile(r"--made-for-kids\s+(true|false)\b", re.IGNORECASE),
+        re.compile(r"made_for_kids\s*\{true,false\}", re.IGNORECASE),
+    ]
+    skip_dirs = {".claude/dormant", ".git", ".venv", "__pycache__", ".pytest_cache"}
+    skip_files = {Path(__file__).name}
+    hits = []
+    for suffix in ("*.md", "*.py", "*.html", "*.yml", "*.yaml"):
+        for path in REPO_ROOT.rglob(suffix):
+            rel = path.relative_to(REPO_ROOT).as_posix()
+            if any(rel.startswith(d) for d in skip_dirs) or path.name in skip_files:
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            for pattern in stale_patterns:
+                if pattern.search(text):
+                    hits.append(f"{rel}: matched {pattern.pattern}")
+    assert not hits, "stale --made-for-kids {true,false} syntax found:\n" + "\n".join(hits)

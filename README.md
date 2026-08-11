@@ -84,8 +84,9 @@ accidentally force a real publish through code that still passes `dry_run=True` 
 Every result includes a `"dry_run"` field and a plain-language `"message"` stating whether
 anything was actually published.
 
-YouTube additionally requires `--made-for-kids {true,false}` and `--acknowledge-upload-terms` for
-a real upload -- see [YouTube-specific requirements](#youtube-specific-requirements) below.
+YouTube additionally requires exactly one of `--made-for-kids` / `--not-made-for-kids` and
+`--acknowledge-upload-terms` for a real upload -- see
+[YouTube-specific requirements](#youtube-specific-requirements) below.
 
 ## Testing status
 

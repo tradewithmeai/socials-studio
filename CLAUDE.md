@@ -29,8 +29,9 @@ current testing status.
   (library call) is required to actually publish anything for real.** Don't pass it when
   demonstrating or testing a publisher unless the user explicitly wants a real, live publish.
 - Default to `--visibility private` on any real YouTube publish unless told otherwise. A real
-  YouTube upload additionally requires `--made-for-kids {true,false}` and
-  `--acknowledge-upload-terms` -- see `auth/publish_youtube.py`'s module docstring.
+  YouTube upload additionally requires exactly one of `--made-for-kids` / `--not-made-for-kids`
+  (mutually exclusive, never defaulted or inferred) and `--acknowledge-upload-terms` -- see
+  `auth/publish_youtube.py`'s module docstring.
 - X (Twitter) is not presented as a supported platform in this release. Don't reference it in
   anything user-facing (docs, onboarding, quick-reference) without checking CHANGELOG.md first.
 - If you're extending this to a new platform's publish flow, match the existing pattern: real

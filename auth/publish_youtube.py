@@ -161,9 +161,10 @@ def publish_youtube(
         )
     if made_for_kids is None:
         raise SystemExit(
-            "A real upload requires --made-for-kids {true,false} (or made_for_kids=True/False), "
-            "declared before upload as required by YouTube's API Client policy. This is not "
-            "optional -- see the module docstring for the policy citation."
+            "A real upload requires exactly one of --made-for-kids / --not-made-for-kids "
+            "(or made_for_kids=True/False), declared before upload as required by YouTube's "
+            "API Client policy. This is not optional and never inferred -- see the module "
+            "docstring for the policy citation."
         )
 
     creds = _load_credentials()

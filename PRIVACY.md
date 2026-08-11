@@ -21,9 +21,18 @@ that confirms nothing under `profiles/` has been accidentally committed.
   operates -- there is no such server.
 - It does not include telemetry or usage analytics (see [SECURITY.md](SECURITY.md) for the exact
   scope of that claim).
-- It does not share your credentials with any third party beyond the platform each credential is
-  *for* (your Bluesky session only ever talks to Bluesky; your YouTube token only ever talks to
-  Google's YouTube Data API).
+- **This project's own code** does not direct your credentials to any destination beyond the
+  platform each credential is *for* -- the code that reads a Bluesky session only ever navigates
+  it to bsky.app; the code that reads the YouTube token only ever calls Google's YouTube Data API.
+
+This is a claim about *this project's own code*, not about the software it runs on top of.
+Bluesky/LinkedIn/Instagram publishing uses a real Chrome browser, driven by Playwright -- both are
+third-party software this project does not control, audit, or modify. A real Chrome instance can
+make its own network calls this project's code never initiates or sees: update checks, Safe
+Browsing lookups, telemetry Google Chrome itself collects, DNS resolution, and so on. Playwright
+similarly has its own update-check and browser-management behavior. None of that is inspected or
+disclosed here because it isn't this project's code -- see each project's own documentation
+(Chrome's privacy policy, Playwright's) if that level of detail matters to you.
 
 ## Third-party services this tool talks to
 

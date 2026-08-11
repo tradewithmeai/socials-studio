@@ -78,10 +78,19 @@ this codebase's own security:
   something malformed" is a more realistic failure mode than for a stable API integration.
 - **Platform-policy risk.** Using unofficial browser automation against a platform's own terms of
   service is a decision you're making about your own account, not something this project can
-  absolve. YouTube uses the official Data API specifically because Google blocks the alternative
-  outright; the other platforms don't currently offer an equivalent third-party publishing API, so
-  browser automation via your own already-authenticated session is the approach this project
-  takes instead.
+  absolve. YouTube uses the official Data API specifically because Google blocks the browser-
+  automation alternative outright.
+
+  Bluesky, LinkedIn, and Instagram each **do** offer an official publishing API --
+  [Bluesky's `createPost`](https://docs.bsky.app/docs/tutorials/creating-a-post),
+  [LinkedIn's Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api),
+  and [Instagram's Content Publishing API](https://developers.facebook.com/documentation/instagram-platform/content-publishing.md/)
+  all exist and are documented. What differs per platform is access requirements (developer app
+  review, business/creator account requirements, rate limits) and feature coverage relative to
+  what this project's browser-driven publishers currently do. This beta uses browser automation
+  for those three platforms because that's what's implemented today, not because no API exists --
+  migrating some or all of them to their official APIs remains under evaluation; see
+  [ROADMAP.md](ROADMAP.md). Until/unless that happens, the browser-automation risks below apply.
 
 ## Reporting a vulnerability
 
