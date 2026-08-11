@@ -294,6 +294,15 @@ GROUPS = {"sessions": check_sessions, "youtube": check_youtube,
 
 
 def main() -> int:
+    # Windows consoles often default to a legacy codepage (cp1252) that cannot
+    # encode the em dashes used throughout this file's output, rendering them
+    # as "?" or "" instead of erroring outright. Force UTF-8 so the output is
+    # legible everywhere, matching the encoding="utf-8" fix already applied to
+    # subprocess calls in auth/chrome_setup.py for the same underlying reason.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     for name in GROUPS:
@@ -325,7 +334,14 @@ def main() -> int:
     n_warn = sum(1 for _, s, _, _ in results if s == WARN)
     n_pass = sum(1 for _, s, _, _ in results if s == PASS)
 
-    print(f"\n{n_pass} passed, {n_warn} warning(s), {n_fail} failure(s).")
+    # The number of checks that run is NOT fixed -- it depends on what's
+    # already connected (e.g. a fresh clone with nothing set up sees far
+    # fewer checks than a fully-connected one, since per-platform checks
+    # like "token points at your channel" only exist once there's a token to
+    # check). Always state the total alongside the breakdown so a first-run
+    # agent or user can tell "5 checks, none of them failures" apart from
+    # "5 of some larger unstated total, might be missing checks."
+    print(f"\n{len(results)} checks run: {n_pass} passed, {n_warn} warning(s), {n_fail} failure(s).")
     if n_fail:
         print("Fix the failures above before publishing — each one has a concrete next step.")
     elif n_warn:

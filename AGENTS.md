@@ -44,7 +44,10 @@ python doctor.py
 
 It checks every platform's saved session, whether the YouTube token exists and which channel it's
 bound to, ffmpeg availability, and that nobody's live session cookies got accidentally committed.
-13 checks when everything's connected; it tells you exactly which ones fail otherwise.
+The number of checks it runs isn't fixed -- a fresh clone with nothing connected yet sees fewer
+checks than a fully-connected setup, since some checks (like which YouTube channel a token
+belongs to) only exist once there's something to check. The summary line always states the total
+run, so you can tell "N checks, none failing" apart from "N of some larger unstated total."
 
 ### Stop 2 — `.claude/skills/platform-login/SKILL.md`, the shared login mechanic
 

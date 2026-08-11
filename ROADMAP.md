@@ -12,7 +12,6 @@ this develops; that's not a promise every request gets built.
 
 ## Next, roughly in order
 
-- Publish support for Bluesky.
 - An MCP server wrapping login + publish as proper agent tools, so this isn't CLI-only.
 - Multi-agent support beyond Claude Code: OpenCode and Codex are the two firm targets; a couple
   more slots open after that.
