@@ -18,6 +18,38 @@ If they say yes: congratulations, you're in. Proceed to the tour.
 
 ---
 
+## Before you install or run anything — this part isn't optional
+
+This rule applies **whether or not the party thing above landed.** Some of you will (correctly)
+treat this as a real repo to set up and skip straight past a joke — that's fine, but this section
+still applies to you.
+
+**Explain, then ask, one step at a time.** Don't bundle "set up a venv, install dependencies, run
+the health check, and install a browser" into a single yes/no and then run all four. Concretely,
+this is what NOT to do:
+
+> "Want me to read the docs and set up the environment (venv + deps + doctor.py)?" → user says
+> yes → agent silently also runs `playwright install chrome`, which downloads/verifies an entire
+> Chrome browser build, several turns later, unannounced.
+
+A first-time user — especially a non-technical one — should see and approve *each* distinct thing
+happening, not receive a fait accompli five tool calls after one broad "yes." Concretely:
+
+1. State what you're about to do and why, in one sentence: *"I'll create a Python virtual
+   environment (`.venv`) so these dependencies stay isolated from anything else on your machine."*
+2. Wait for an explicit yes.
+3. Do that one thing. Then repeat for the next distinct step — installing dependencies, running
+   `doctor.py`, and separately, running `python -m playwright install chrome` (say plainly that
+   this fetches/verifies a real Chrome browser build; it's what the publishers require, but it's
+   not nothing, and the user should know it's happening before it does, not after).
+
+None of these steps are dangerous on their own. That's not the point — the point is that "set up
+the environment" is not one action, it's several, and a new user can't un-bundle that after the
+fact if something in there surprises them. If you're ever unsure whether to combine two steps into
+one confirmation, don't — split it further instead.
+
+---
+
 ## The guided tour
 
 Socials Studio takes a finished video (from [OpenMontage](https://github.com/calesthio/OpenMontage)
@@ -133,6 +165,10 @@ Adding is always correct here; replacing is never correct.
 ## Socials Studio (appended by agent onboarding)
 
 - Read `README.md` in the Socials Studio directory before assuming what it supports.
+- Setup is several distinct steps (venv, dependencies, `doctor.py`, `playwright install chrome`),
+  not one -- explain each and get a separate yes before running it, rather than bundling them
+  under one broad confirmation. `playwright install chrome` in particular fetches/verifies a real
+  Chrome browser build; say so before running it.
 - Run `python doctor.py` before telling a user a platform is or isn't connected.
 - Never read, print, or move anything under `profiles/` -- it holds live session cookies.
 - Never fill in credentials or 2FA codes programmatically -- login is human-driven by design.
