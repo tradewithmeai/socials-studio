@@ -1,11 +1,17 @@
 # Socials Studio
 
-**Publish your OpenMontage videos**
+**The independent publishing companion for OpenMontage**
 
-OpenMontage creates the video. Socials Studio handles the next stage: review, authentication and
-publication.
+[![CI](https://github.com/tradewithmeai/socials-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/tradewithmeai/socials-studio/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/tradewithmeai/socials-studio?include_prereleases)](https://github.com/tradewithmeai/socials-studio/releases)
+[![Python 3.10–3.13](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue)](#install)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Works with OpenMontage output](https://img.shields.io/badge/OpenMontage-works%20with%20output-informational)](https://github.com/calesthio/OpenMontage)
 
-> Socials Studio is an independent community project. It is not affiliated with, maintained by or
+[OpenMontage](https://github.com/calesthio/OpenMontage) creates the video. Socials Studio handles
+review, authentication and publication.
+
+> Socials Studio is an independent community project. It is not affiliated with, maintained by, or
 > endorsed by OpenMontage.
 
 **Public beta — v0.1.0-beta.2.** Publish videos and posts to YouTube, Bluesky, LinkedIn and
@@ -46,11 +52,25 @@ OpenMontage exactly the same way it would work with a finished video file from a
 OpenMontage export -> Socials Studio review -> publish to YouTube, Bluesky, LinkedIn or Instagram
 ```
 
-If you're using Claude Code and the video came from OpenMontage, point it at the
-`openmontage-context` skill before asking it to write your caption or description -- OpenMontage's
-own pipeline writes out the video's script, intended tone, and target audience as plain JSON next
-to the render, so copy can be grounded in what the video actually says instead of guessed from the
-filename.
+## For OpenMontage users
+
+```
+OpenMontage render
+    → Socials Studio reads available project context
+    → review title, description and platform details
+    → validate safely
+    → explicitly confirm publication
+```
+
+OpenMontage's pipeline writes its own plain JSON artifacts alongside a render -- the script that
+was actually used, the intended tone and audience, the real output resolution and duration. If
+you're using Claude Code, the `openmontage-context` skill reads whatever of that is actually
+present for a given project (different OpenMontage pipelines produce different artifact shapes,
+so this isn't a fixed schema to depend on) and grounds the copy it suggests in what the video
+actually says, rather than inventing framing from scratch.
+
+This works the same way regardless of source -- **any finished video file can be used**, with or
+without OpenMontage context available. See [OPENMONTAGE.md](OPENMONTAGE.md) for the full guide.
 
 ## Supported platforms
 
@@ -224,6 +244,15 @@ Neither is required for `--dry-run`.
 - **Login wizard times out** -- default wait is 10 minutes; re-run with `--timeout <seconds>` if you
   need longer (2FA app switching, etc.).
 
+## If this is useful to you
+
+- **Star the repo** if this workflow saves you time -- it costs nothing and it's the easiest
+  signal that it's worth continuing to maintain.
+- **Run it against a real account and [file a beta test report](#reporting-problems--requesting-features)**,
+  pass or fail -- both are useful.
+- **Used it with OpenMontage output specifically?** Say so in that report. Real compatibility
+  findings from actual projects are worth more than anything written in this README.
+
 ## Reporting problems / requesting features
 
 - **Report a problem** -> Bug report issue template.
@@ -236,8 +265,9 @@ Neither is required for `--dry-run`.
 - **Broader feedback or ideas** -> GitHub Discussions.
 
 See [SECURITY.md](SECURITY.md) to report a security issue specifically,
-[PRIVACY.md](PRIVACY.md) for what's stored locally and why, and
-[CONTRIBUTING.md](CONTRIBUTING.md) before sending a PR.
+[PRIVACY.md](PRIVACY.md) for what's stored locally and why,
+[CONTRIBUTING.md](CONTRIBUTING.md) before sending a PR, and
+[OPENMONTAGE.md](OPENMONTAGE.md) for the full OpenMontage-specific guide.
 
 ## Roadmap
 

@@ -121,7 +121,9 @@ If you're about to write publish copy for a video that came from OpenMontage, us
 first. OpenMontage's own pipeline writes plain JSON artifacts alongside the render -- the actual
 script, the intended tone and audience, the real duration and resolution -- so you don't have to
 guess at any of that from the filename. Read them, then write copy that actually matches the
-video, instead of inventing framing from scratch.
+video, instead of inventing framing from scratch. [OPENMONTAGE.md](OPENMONTAGE.md) is the
+human-facing version of this same guidance, if a user asks you to explain the relationship rather
+than just act on it.
 
 ### What you can actually do here
 
@@ -215,4 +217,5 @@ python -m auth.publish_bluesky "text"                  # validate only -- the de
 python -m auth.publish_bluesky "text" --confirm-publish # actually post for real
 ```
 
-Full detail: [README.md](README.md) · [CLAUDE.md](CLAUDE.md) · [ROADMAP.md](ROADMAP.md)
+Full detail: [README.md](README.md) · [CLAUDE.md](CLAUDE.md) · [ROADMAP.md](ROADMAP.md) ·
+[OPENMONTAGE.md](OPENMONTAGE.md)

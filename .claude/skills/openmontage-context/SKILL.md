@@ -5,6 +5,10 @@ description: Read an OpenMontage project's own artifacts (script, brief, render 
 
 # OpenMontage context
 
+See [OPENMONTAGE.md](../../../OPENMONTAGE.md) at the repo root for the human-facing version of
+this same guidance, including the independent-project relationship between the two repos, if a
+user asks about that rather than just wanting copy written.
+
 OpenMontage renders a video through a pipeline of stages, and each stage writes a plain JSON
 artifact -- so the video's actual script, intended tone, target audience, and even its real
 duration and resolution are all sitting on disk next to the render, not something you need to

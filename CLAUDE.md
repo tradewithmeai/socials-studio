@@ -1,7 +1,8 @@
 # Socials Studio
 
 Read `README.md` first -- it's the source of truth for install, setup, supported platforms, and
-current testing status.
+current testing status. See `OPENMONTAGE.md` specifically for how this repo relates to
+OpenMontage, if a user asks about that relationship.
 
 ## Working in this repo
 
