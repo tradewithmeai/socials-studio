@@ -49,8 +49,8 @@ whose `renders/final.mp4` matches the video they're asking about.
 ## Using it
 
 Once you've read these, write platform copy that echoes the video's actual hook, tone, and
-audience rather than inventing new framing from scratch. A caption for X should sound like it
-came from the same voice as `performance_intent`; a description shouldn't claim an audience or
+audience rather than inventing new framing from scratch. A caption for Bluesky should sound like
+it came from the same voice as `performance_intent`; a description shouldn't claim an audience or
 angle the `brief`/`research_brief` didn't set out to reach.
 
 If the artifacts are ambiguous, thin, or you're genuinely unsure what a project is going for, and

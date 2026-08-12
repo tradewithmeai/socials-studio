@@ -1,7 +1,13 @@
-playwright>=1.47
+# Runtime dependencies only. See requirements-dev.txt for test/lint tooling.
+#
+# Upper bounds are set one major version above what's verified to work (checked against
+# PyPI's published versions at the time of writing) -- not exact pins, so patch/minor updates
+# still flow in, but a future breaking major release upstream can't silently break installs
+# of this project without a deliberate version bump here.
+playwright>=1.47,<2.0
 
 # YouTube publish (OAuth + Data API, not browser automation -- Google blocks
 # automated sign-in, see auth/publish_youtube.py)
-google-api-python-client>=2.100
-google-auth-oauthlib>=1.2
-google-auth-httplib2>=0.2
+google-api-python-client>=2.100,<3.0
+google-auth-oauthlib>=1.2,<2.0
+google-auth-httplib2>=0.2,<1.0

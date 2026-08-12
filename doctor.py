@@ -30,8 +30,10 @@ PROFILES_DIR = REPO_ROOT / "profiles"
 YOUTUBE_TOKEN = PROFILES_DIR / "youtube" / "token.json"
 
 # Platforms that use a saved browser session. YouTube is deliberately absent: it uses
-# OAuth + the official Data API and never touches a browser profile.
-BROWSER_PLATFORMS = ["x", "instagram", "bluesky", "linkedin"]
+# OAuth + the official Data API and never touches a browser profile. X is also absent:
+# it's not presented as a supported platform in this release (auth/publish_x.py and its
+# login machinery are untouched and functional -- see .claude/dormant/README.md).
+BROWSER_PLATFORMS = ["instagram", "bluesky", "linkedin"]
 
 PASS, WARN, FAIL, SKIP = "PASS", "WARN", "FAIL", "SKIP"
 _MARK = {PASS: "[ok]  ", WARN: "[warn]", FAIL: "[FAIL]", SKIP: "[skip]"}
@@ -74,7 +76,7 @@ def check_sessions() -> None:
     if not PROFILES_DIR.exists():
         record(g, FAIL, "Any platform connected",
                "No profiles/ directory — nothing is connected yet.\n"
-               "    Fix: python -m auth.login_wizard --platform x   (and the same for each platform)\n"
+               "    Fix: python -m auth.login_wizard --platform bluesky   (and the same for each platform)\n"
                "    That opens a plain Chrome window for you to sign in by hand. Automation cannot\n"
                "    log in for you: attempting it trips anti-automation defences.")
         return
@@ -211,10 +213,10 @@ def _check_channel(g: str) -> None:
                f"Dependency missing ({e.name}). Fix: pip install -r requirements.txt")
         return
 
+    # Must match auth.publish_youtube.SCOPES exactly.
     scopes = [
         "https://www.googleapis.com/auth/youtube.upload",
         "https://www.googleapis.com/auth/youtube.readonly",
-        "https://www.googleapis.com/auth/youtube",
     ]
     try:
         creds = Credentials.from_authorized_user_file(str(YOUTUBE_TOKEN), scopes)

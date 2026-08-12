@@ -4,11 +4,13 @@ Publishing runs through `auth/publish_bluesky.py`, which drives a saved browser 
 **You do not drive the browser yourself.** Call the script.
 
 ```bash
-python -m auth.publish_bluesky "post text"
-python -m auth.publish_bluesky "post text" --image path/to/photo.jpg
-python -m auth.publish_bluesky "post text" --video path/to/clip.mp4
-python -m auth.publish_bluesky "post text" --dry-run
+python -m auth.publish_bluesky "post text" --confirm-publish
+python -m auth.publish_bluesky "post text" --image path/to/photo.jpg --confirm-publish
+python -m auth.publish_bluesky "post text" --video path/to/clip.mp4 --confirm-publish
+python -m auth.publish_bluesky "post text"    # validates only -- the default, no flags needed
 ```
+
+Safe by default: every call above validates only unless `--confirm-publish` is present.
 
 Requires a saved session: `python -m auth.login_wizard --platform bluesky`.
 
@@ -32,7 +34,7 @@ real keystrokes, which is what triggers detection. You do not need to click "Add
 **A video and a link card are mutually exclusive.** Bluesky allows one embed. If you attach a video,
 the link stays as plain linked text in the body — that is expected, not a failure.
 
-**Register:** dry, understated, slightly wry. Fewer hashtags than X — often none at all.
+**Register:** dry, understated, slightly wry. Light on hashtags — often none at all.
 
 ## Video limits
 

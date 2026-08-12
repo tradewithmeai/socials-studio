@@ -33,16 +33,19 @@ still exists on bsky.app before assuming the wizard itself is broken.
 ### Verify before a real publish
 
 ```bash
-python -m auth.publish_bluesky "test text" --dry-run
+python -m auth.publish_bluesky "test text"
 ```
 
-Check for `"session_found": true`. No browser launched, nothing posted.
+Safe by default -- this validates only and launches nothing even without `--dry-run`. Check for
+`"session_found": true`.
 
 ### Real publish
 
+`--confirm-publish` is required -- without it, this only validates, same as above:
+
 ```bash
-python -m auth.publish_bluesky "post text"
-python -m auth.publish_bluesky "post text" --video path/to/video.mp4
+python -m auth.publish_bluesky "post text" --confirm-publish
+python -m auth.publish_bluesky "post text" --video path/to/video.mp4 --confirm-publish
 ```
 
 No visibility/draft concept on Bluesky -- a successful publish is immediately live.
