@@ -3,7 +3,7 @@
 This project doesn't yet follow a strict versioning scheme beyond `MAJOR.MINOR.PATCH-beta.N` --
 that will firm up once it leaves beta. Dates are when a release was tagged, not when work started.
 
-## v0.1.0-beta.2 (unreleased)
+## v0.1.0-beta.2 (2026-08-12)
 
 ### Removed from the advertised surface
 
