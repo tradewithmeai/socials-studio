@@ -8,9 +8,13 @@ Studio itself.
 ## What Socials Studio adds after a render
 
 [OpenMontage](https://github.com/calesthio/OpenMontage) renders the video. That's where its job
-ends and Socials Studio's begins: reviewing the publishing details (title, description,
-visibility), validating them safely, and then publishing to YouTube, Bluesky, LinkedIn, or
-Instagram once you've explicitly confirmed you want that to happen.
+ends and Socials Studio's begins -- and it's more than a fixed review-then-publish step. Ask
+Claude Code to turn an OpenMontage render into a whole campaign: platform-specific posts for
+several destinations, coordinated with each other, reviewed with you, and published once you've
+explicitly confirmed. Claude can also request media from OpenMontage (or another available
+agentic video application) as part of preparing that campaign in the first place, not only
+consume a render that already exists. The single-video, single-post path (review the title,
+description, and visibility, validate, publish) is still there when that's all you want.
 
 ## The current workflow: file-based compatibility
 
@@ -67,8 +71,11 @@ supports (text, image, video) and how authentication works for it.
 
 ## Current limitations
 
-- No live integration -- this is file-based compatibility, checked by hand each time, not an
-  automated pipeline from OpenMontage render to publish.
+- No live integration between the two projects' code -- this is file-based compatibility, reviewed
+  and confirmed through Claude Code each time, not an unattended pipeline that goes from an
+  OpenMontage render straight to a live publish with no human in the loop. That's a deliberate
+  safety property, not a missing feature -- see README.md's
+  ["what isn't available yet"](README.md#what-isnt-available-yet) for the two genuine gaps.
 - The `openmontage-context` skill only helps if you're using Claude Code and the OpenMontage
   project's artifacts are present and findable; it degrades gracefully (asks, or works from just
   the video file) when they aren't.

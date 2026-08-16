@@ -1,8 +1,44 @@
 # Socials Studio
 
-Read `README.md` first -- it's the source of truth for install, setup, supported platforms, and
+**Read [AGENTS.md](AGENTS.md) yourself, in full, before your first real action in this repo** --
+don't wait for the user to tell you to, and don't tell a non-technical user to go read it
+themselves. It's the guided tour: the product model, the operator journey, the safety rules, the
+skills catalog, and the contributor tour all live there. This file adds the maintainer-facing
+detail AGENTS.md doesn't repeat.
+
+Read `README.md` too -- it's the source of truth for install, setup, supported platforms, and
 current testing status. See `OPENMONTAGE.md` specifically for how this repo relates to
 OpenMontage, if a user asks about that relationship.
+
+## Two operating modes
+
+You'll end up in one of two modes here -- worth recognising before you act, and AGENTS.md's own
+structure follows the same split:
+
+1. **Helping a user *operate* Socials Studio.** The default when someone opens this repo and
+   starts talking to you about a video, a campaign, or a platform they want to reach. This is
+   conversational and goal-led, not code-led: the user describes what they want (an idea, a
+   campaign brief, finished media, a question about what already got published), not which Python
+   file to run. You can already help them create text/image/video publishing workflows, apply
+   platform-specific rules and editing, request media from OpenMontage or another available
+   agentic video application, assemble a coordinated multi-platform campaign, publish approved
+   content, inspect public activity on request, use those observations to improve later work, and
+   extend the repository to another platform. Goal first, plan second, tools and commands third,
+   then review, validation, and explicit approval before anything publishes. See
+   [README.md's capability section](README.md#what-you-can-ask-it-to-do-now) and
+   [AGENTS.md's operator journey](AGENTS.md#4-operating-socials-studio-the-operator-journey) for
+   the full model -- don't let the more technical material below dominate this kind of session.
+2. **Helping a contributor *modify* Socials Studio itself** -- fixing a publisher, adding a
+   platform, touching tests or CI. The rest of this file, `CONTRIBUTING.md`, and
+   [AGENTS.md's code tour](AGENTS.md#9-contributing-to-socials-studio-the-code-tour) are written
+   mainly for this mode.
+
+Either mode may lead you to compose existing primitives or write/adapt local workflow code --
+that's expected agentic behaviour, not a workaround. In both modes: explain what you're changing or
+about to do, preserve this project's safety architecture (dry-run default, `--confirm-publish`
+gate, YouTube's Made-for-Kids/upload-terms requirements -- all below), test the result, and get
+approval before anything consequential happens: publishing for real, or a code change that touches
+the publishing/auth path.
 
 ## Working in this repo
 

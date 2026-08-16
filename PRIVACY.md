@@ -1,8 +1,28 @@
 # Privacy Policy
 
-Socials Studio is a local command-line tool. There is no server, no account system, and no
-hosted service operated by this project -- everything described below happens on your own
-machine, using your own credentials, for your own accounts.
+Socials Studio is a local-first application, operated through Claude Code, with a Python
+command-line layer underneath that does the actual authentication and publishing work. There is
+no server, no account system, and no hosted service operated by this project -- everything
+described below happens on your own machine, using your own credentials, for your own accounts.
+
+## Claude Code is a separate service
+
+This policy describes what **Socials Studio's own code** stores and does. If you operate this
+repository through Claude Code, that's a separate, third-party service with its own
+configuration, data handling, and privacy terms -- not something this project controls, audits,
+or extends, and not something this document makes any claim about. Anything you provide to Claude
+Code while operating this repository (files, conversation content, or otherwise) is governed by
+Claude Code's own terms, not by this document. Review those separately at
+[claude.com/claude-code](https://claude.com/claude-code) -- this project does not speculate about
+what they say.
+
+What *is* covered by this policy, regardless of which agent (or no agent at all) you use to drive
+it: the platform session files and OAuth tokens under `profiles/`, described below. This
+project's own instructions to any agent operating here are explicit that `profiles/` must never
+be read, printed, or otherwise surfaced -- see `CLAUDE.md` and `AGENTS.md` in this repository. Calling
+Socials Studio "local-first" is a claim about that data and about this project's own publishing
+execution, not a claim that every part of using Claude Code to operate it is confined to your
+machine.
 
 ## What is stored, and where
 

@@ -51,9 +51,7 @@ def _click_by_text(page: Page, text: str, tag_filter: str = "a,button,[role=link
     real `<a role="link">Post</a>` in the DOM (verified via querySelector),
     but `page.get_by_role("link", name="Post")` finds ZERO matches -- some
     quirk in how Playwright computes the accessible name for these elements.
-    A plain JS click by innerText works every time. This matches the
-    private repo's own hard-won note: "IG dialog buttons ... respond to
-    plain JS .click() -- find by text and click." Don't reach for
+    A plain JS click by innerText works every time. Don't reach for
     get_by_role on Instagram's composer chrome; it silently fails here.
     """
     return page.evaluate(

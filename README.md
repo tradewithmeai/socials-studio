@@ -25,20 +25,29 @@ X (Twitter) is not presented as a supported platform in this release -- see
 > first -- it's a guided tour built for agents, not humans. Everything here also works driven by
 > hand, with no agent at all.
 
+Socials Studio's own data -- platform sessions, OAuth tokens, publishing execution -- stays local
+to your machine (see [Publishing safety](#publishing-safety) and [PRIVACY.md](PRIVACY.md)). Claude
+Code itself is a separate service with its own configuration, data handling, and privacy terms --
+review those separately at [claude.com/claude-code](https://claude.com/claude-code).
+
 ---
 
 ## What this is
 
-[OpenMontage](https://github.com/calesthio/OpenMontage) is an open-source AI video production
-pipeline. Socials Studio is an independent companion workflow for OpenMontage users: it accepts
-finished video output, helps you review the publishing details, and publishes the video to
-YouTube, Bluesky, LinkedIn and Instagram.
+**An agentic social media studio, operated through Claude Code.** Give it an idea, a campaign
+brief, or finished media. It can create platform-specific content, coordinate multiple posts,
+review and validate the campaign with you, publish approved material through the existing
+publishers, and inspect the response -- all from one local, extensible workspace.
 
-This is file-based compatibility, not a technical integration -- Socials Studio has no dependency
-on OpenMontage's code and doesn't call into it. It works with a finished video file from
-OpenMontage exactly the same way it would work with a finished video file from anywhere else.
+[OpenMontage](https://github.com/calesthio/OpenMontage) can create the video. Socials Studio can
+request, understand, adapt, and publish the resulting media as part of a wider campaign.
 
-## How it works
+This is file-based compatibility with OpenMontage, not a technical integration -- Socials Studio
+has no dependency on OpenMontage's code and doesn't call into it. It works with a finished video
+file from OpenMontage exactly the same way it would work with a finished video file from anywhere
+else, or with no video at all.
+
+## How it works (the simplest case)
 
 1. **Create** -- Render or export your finished video from OpenMontage (or any other source).
 2. **Review** -- Point Socials Studio at the file and set the title, description, and visibility.
@@ -51,6 +60,51 @@ OpenMontage exactly the same way it would work with a finished video file from a
 ```
 OpenMontage export -> Socials Studio review -> publish to YouTube, Bluesky, LinkedIn or Instagram
 ```
+
+That's the single-video, single-post path. It's not the ceiling -- see the next section for what
+else you can ask for in the same conversation.
+
+## What you can ask it to do now
+
+Socials Studio isn't a fixed set of commands you invoke one at a time -- it's Claude Code's
+reasoning and coding intelligence, working through this repository's authentication, validation,
+and publishing primitives, its skills, and a local codebase it can inspect and extend. None of the
+following needs a dedicated button or a pre-written skill before it's possible; a skill just
+packages a workflow that already works into something more repeatable. You can ask it to:
+
+- Write a post for a specific platform, in that platform's own conventions.
+- Turn one idea into several platform-specific posts in a single pass.
+- Prepare text, image, and video variants for a post.
+- Ask OpenMontage -- or another available agentic video application -- to generate the media a
+  campaign needs.
+- Use an OpenMontage project's own script/brief/render-report context (via the
+  `openmontage-context` skill) instead of guessing what a video contains.
+- Assemble several related posts into a coordinated, multi-platform campaign.
+- Adapt each post to the rules and conventions of its destination platform.
+- Present the whole campaign for your review before anything goes out, and validate every result
+  -- every publisher here is safe-by-default and touches nothing until you explicitly confirm.
+- Publish approved posts through the existing publishers (YouTube, Bluesky, LinkedIn, Instagram).
+- Inspect subsequent activity on published posts, on request, and use those observations to
+  prepare or recommend the next round of content.
+- Add another social platform -- ask Claude Code to extend the repository following the existing
+  publisher pattern (auth, validation, tests, and a skill), respecting that platform's real
+  API/browser constraints, its terms, and this project's confirmation gates.
+
+Some of these may lead Claude to write or adapt local code -- a new platform's publisher, for
+instance. That's the intended way this application grows, not a workaround; the result still has
+to pass this project's own validation and `--confirm-publish` gate before anything real happens.
+
+### What isn't available yet
+
+- **Live streaming.**
+- **Unattended or scheduled automated publishing**, as a packaged, supported workflow. Claude can
+  already prepare and execute a multi-post, multi-platform campaign in one session with your
+  review and explicit `--confirm-publish` at each consequential step -- what's missing is
+  publication that continues **without** you reviewing and authorising it through that gate.
+
+A future skill can turn either of these into something more discoverable, repeatable, and tested
+once there's a proven pattern worth packaging -- that's a maturity milestone, not the first moment
+the capability exists.
 
 ## For OpenMontage users
 

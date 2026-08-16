@@ -14,15 +14,31 @@ this develops; that's not a promise every request gets built.
   [CHANGELOG.md](CHANGELOG.md). The implementation (`auth/publish_x.py`) is untouched and
   functional; its future is undecided.
 
+## Not available yet (the two genuine gaps)
+
+These are the only capabilities that are actually missing today, not just unpackaged:
+
+- **Live streaming.**
+- **Unattended or scheduled automated publishing**, as a packaged, supported workflow. Claude Code
+  can already prepare and execute a multi-post, multi-platform campaign in one session with your
+  review and explicit `--confirm-publish` at each consequential step -- what's missing is
+  publication that continues without you reviewing and authorising it through that gate. See
+  [README.md](README.md#what-isnt-available-yet).
+
 ## Next, roughly in order
 
+- Package proven agent-led workflows (see the two gaps above, once a working pattern exists) into
+  dedicated, tested skills -- more discoverable and repeatable, not a new capability boundary.
 - Evaluate migrating Bluesky, LinkedIn, and/or Instagram from browser automation to their
   official publishing APIs (Bluesky's `createPost`, LinkedIn's Posts API, Instagram's Content
   Publishing API) -- each exists and is documented; what's unevaluated is the access requirements
   (developer app review, account type requirements, rate limits) and feature-coverage tradeoff
   against what the current browser-driven publishers do. See [SECURITY.md](SECURITY.md) for the
   risk rationale behind considering this at all.
-- An MCP server wrapping login + publish as proper agent tools, so this isn't CLI-only.
+- An MCP server exposing these primitives as structured, typed tools -- a discoverability and
+  ergonomics improvement for agents/interfaces that work better with tool calls than shell
+  commands, not something that newly unlocks agent-driven use (Claude Code already operates this
+  repository conversationally today).
 - Multi-agent support beyond Claude Code: OpenCode and Codex are the two firm targets; a couple
   more slots open after that.
 - A possible future OpenMontage `tools/publishers/` adapter file, contributed as an ordinary

@@ -3,22 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Socials Studio — The independent publishing companion for OpenMontage</title>
-<meta name="description" content="Socials Studio is an independent, local-first tool that reviews, authenticates and publishes finished video to YouTube, Bluesky, LinkedIn and Instagram. Works with OpenMontage output, and with any other finished video file. Not affiliated with, maintained by, or endorsed by OpenMontage. Public beta v0.1.0-beta.2.">
+<title>Socials Studio — An agentic social media studio for Claude Code</title>
+<meta name="description" content="Socials Studio is an independent, local-first agentic social media studio operated through Claude Code. Give it an idea, a campaign brief, or finished media -- it creates platform-specific content, coordinates a multi-platform campaign, reviews it with you, and publishes approved posts to YouTube, Bluesky, LinkedIn and Instagram. Works with OpenMontage output, or any other media. Not affiliated with, maintained by, or endorsed by OpenMontage. Public beta v0.1.0-beta.2.">
 <link rel="canonical" href="https://tradewithmeai.github.io/socials-studio/">
-<meta property="og:title" content="Socials Studio — The independent publishing companion for OpenMontage">
-<meta property="og:description" content="Independent, local-first review-and-publish tool for finished video: YouTube, Bluesky, LinkedIn and Instagram. Works with OpenMontage output, and with any other finished video file. Public beta v0.1.0-beta.2.">
+<meta property="og:title" content="Socials Studio — An agentic social media studio for Claude Code">
+<meta property="og:description" content="An independent, local-first agentic social media studio operated through Claude Code: create, coordinate, review and publish a campaign across YouTube, Bluesky, LinkedIn and Instagram. Works with OpenMontage output, or any other media. Public beta v0.1.0-beta.2.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://tradewithmeai.github.io/socials-studio/">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Socials Studio — The independent publishing companion for OpenMontage">
-<meta name="twitter:description" content="Independent, local-first review-and-publish tool for finished video: YouTube, Bluesky, LinkedIn and Instagram. Works with OpenMontage output, and with any other finished video file.">
+<meta name="twitter:title" content="Socials Studio — An agentic social media studio for Claude Code">
+<meta name="twitter:description" content="An independent, local-first agentic social media studio operated through Claude Code: create, coordinate, review and publish a campaign across YouTube, Bluesky, LinkedIn and Instagram.">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "Socials Studio",
-  "description": "Independent, local-first tool that reviews, authenticates and publishes finished video to YouTube, Bluesky, LinkedIn and Instagram. Works with OpenMontage output, and with any other finished video file.",
+  "description": "Independent, local-first agentic social media studio operated through Claude Code. Creates platform-specific content, coordinates multi-platform campaigns, and publishes approved posts to YouTube, Bluesky, LinkedIn and Instagram after explicit human confirmation. Works with OpenMontage output, or any other media.",
   "applicationCategory": "MultimediaApplication",
   "operatingSystem": "Windows, macOS, Linux",
   "url": "https://tradewithmeai.github.io/socials-studio/",
@@ -206,21 +206,29 @@
 <header class="hero">
   <div class="wrap">
     <p class="kicker">Socials Studio</p>
-    <h1>The independent publishing companion for OpenMontage</h1>
-    <h2 class="tagline"><a href="https://github.com/calesthio/OpenMontage">OpenMontage</a> creates the video. Socials Studio handles review, authentication and publication.</h2>
+    <h1>An agentic social media studio, operated through Claude Code</h1>
+    <h2 class="tagline"><a href="https://github.com/calesthio/OpenMontage">OpenMontage</a> can create the video. Socials Studio can request, understand, adapt and publish the resulting media as part of a wider campaign.</h2>
     <p class="lede" style="font-size:0.92rem;">
       Independent community project — not affiliated with, maintained by, or endorsed by
       OpenMontage.
     </p>
     <p class="lede">
-      It accepts finished video output, helps you review the publishing details, and publishes
-      it to YouTube, Bluesky, LinkedIn and Instagram. Any finished video file works, not only
-      OpenMontage renders.
+      Give it an idea, a campaign brief, or finished media. It creates platform-specific content,
+      coordinates multiple posts into a campaign, reviews and validates everything with you, and
+      publishes approved posts to YouTube, Bluesky, LinkedIn and Instagram — all from one local,
+      extensible workspace.
     </p>
     <p class="lede" style="font-size:0.92rem; margin-top:-12px;">
-      Public beta, built and tested with <strong>Claude Code</strong> — that's the only coding
-      agent this has been validated with so far. It should work fine driven by hand too, without
-      any agent at all.
+      Public beta, built and tested with <strong>Claude Code</strong> — the only coding
+      agent this has been validated with so far, and the supported way to operate it. The
+      underlying Python publishers also work driven by hand, without any agent at all — see
+      the CLI reference below.
+    </p>
+    <p class="lede" style="font-size:0.85rem; margin-top:-12px;">
+      Socials Studio's own data stays local to your machine — Claude Code is a separate service
+      with its own configuration and privacy terms; see
+      <a href="https://github.com/tradewithmeai/socials-studio/blob/main/PRIVACY.md">PRIVACY.md</a>
+      for the distinction.
     </p>
     <div class="beta-pill">Public beta v0.1.0-beta.2</div>
     <div class="btn-row">
@@ -234,25 +242,31 @@
 
 <section>
   <div class="wrap">
-    <h3>How it works</h3>
-    <div class="steps">
-      <div class="step">
-        <div class="num">1</div>
-        <h4>Create</h4>
-        <p>Render or export your finished video from OpenMontage (or any other source).</p>
-      </div>
-      <div class="step">
-        <div class="num">2</div>
-        <h4>Review</h4>
-        <p>Point Socials Studio at the file and set the title, description, and visibility. It validates by default and uploads nothing until you explicitly confirm.</p>
-      </div>
-      <div class="step">
-        <div class="num">3</div>
-        <h4>Publish</h4>
-        <p>Authenticate once, then publish to YouTube, Bluesky, LinkedIn, or Instagram. Uploads default to private/draft where supported so you can review the live result yourself.</p>
-      </div>
-    </div>
-    <p class="flow-line">OpenMontage export → Socials Studio review → publish to YouTube, Bluesky, LinkedIn or Instagram</p>
+    <h3>Get started</h3>
+    <p>Clone the repo and open Claude Code in it. That's the whole setup step:</p>
+    <pre style="background:var(--code-bg); border-radius:10px; padding:18px 20px; overflow-x:auto; font-size:0.92rem;"><code>git clone https://github.com/tradewithmeai/socials-studio.git
+cd socials-studio
+claude</code></pre>
+    <p style="font-size:0.92rem;">
+      Requires <a href="https://claude.com/claude-code">Claude Code</a> already installed and
+      authenticated. Claude will explain each setup step (virtual environment, dependencies,
+      health check) and wait for your approval before running it — nothing happens silently.
+    </p>
+    <p>Then just say what you want, in plain language. For example:</p>
+    <ul style="color: var(--text-muted);">
+      <li>"Turn this idea into a campaign for YouTube, Bluesky, LinkedIn and Instagram."</li>
+      <li>"Use this OpenMontage project to prepare platform-specific posts."</li>
+      <li>"Create several coordinated posts from this video."</li>
+      <li>"Show me the campaign and validate everything before publishing."</li>
+      <li>"Check how the published posts are performing."</li>
+      <li>"Add support for another social platform."</li>
+    </ul>
+    <p>
+      Claude prepares and orchestrates the workflow using this repository's authentication,
+      validation, and publishing tools — composing or extending them as your request needs.
+      Publication always stays reviewable: nothing posts for real until you explicitly confirm it.
+    </p>
+    <p class="flow-line">idea or media → Claude prepares the campaign → you review → explicit confirmation → publish to YouTube, Bluesky, LinkedIn or Instagram</p>
   </div>
 </section>
 
@@ -260,18 +274,40 @@
   <div class="wrap">
     <h3>Built for OpenMontage output — and anything else</h3>
     <p>
-      Socials Studio handles the final publishing stage after content has already been created.
-      This is file-based compatibility, not a technical integration — Socials Studio has no
-      dependency on <a href="https://github.com/calesthio/OpenMontage">OpenMontage</a>'s code and
-      doesn't call into it. It works with a finished video file from OpenMontage exactly the same
-      way it would work with a finished video file from anywhere else.
+      Socials Studio has no dependency on <a href="https://github.com/calesthio/OpenMontage">OpenMontage</a>'s
+      code and doesn't call into it — this is file-based compatibility, not a technical
+      integration. It works with a finished video file from OpenMontage exactly the same way it
+      would work with a finished video file from anywhere else, or with no video at all if the
+      campaign is text and image only.
     </p>
     <p>
-      If you're using Claude Code, Socials Studio can also read whatever context an OpenMontage
-      project already generated (its script, intended tone, target audience) to help ground the
-      title and description it suggests — see the
+      Ask Claude to request media from OpenMontage — or another available agentic video
+      application — as part of preparing a campaign, and it can read whatever context an
+      OpenMontage project already generated (its script, intended tone, target audience) to
+      ground the copy it suggests, instead of guessing from the filename. See the
       <a href="https://github.com/tradewithmeai/socials-studio/blob/main/OPENMONTAGE.md">OpenMontage guide</a>
       for how that works and what it depends on.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h3>What isn't available yet</h3>
+    <p>Two genuine gaps, not a fixed feature list:</p>
+    <ul style="color: var(--text-muted);">
+      <li><strong>Live streaming.</strong></li>
+      <li><strong>Unattended or scheduled automated publishing</strong>, as a packaged, supported
+        workflow. Claude can already prepare and execute a multi-post, multi-platform campaign in
+        one session with your review and explicit confirmation at each consequential step — what's
+        missing is publication that continues without you reviewing and authorising it.</li>
+    </ul>
+    <p>
+      A future skill can package either of these into something more discoverable, repeatable and
+      tested once there's a proven pattern worth packaging — not the first moment the underlying
+      capability exists. Anything not listed here as a gap is something you can already ask Claude
+      Code to do; see <a href="https://github.com/tradewithmeai/socials-studio/blob/main/README.md#what-isnt-available-yet">the
+      README</a> for the full capability list.
     </p>
   </div>
 </section>
@@ -330,22 +366,27 @@
 
 <section>
   <div class="wrap">
-    <h3>What it does today</h3>
+    <h3>Prefer the raw commands? They're all still here</h3>
     <p>
-      No demo video yet — here's the actual workflow, end to end, as it exists in this beta:
+      Everything Claude does when operating Socials Studio ultimately runs through a small,
+      transparent set of Python publishers and a health-check script — no hidden state, nothing
+      Claude can do that you can't inspect or run yourself. Useful for debugging, for scripting,
+      or if you'd rather drive it entirely by hand with no agent at all:
     </p>
     <ol style="max-width:560px; margin:12px auto 0; padding-left:20px; color: var(--text-muted);">
-      <li>Point Socials Studio at a finished video file (from OpenMontage or anywhere else).</li>
-      <li>Set the title, description, and visibility.</li>
-      <li>Validate — every publisher checks inputs and touches no browser or API by default,
-        until you explicitly confirm.</li>
+      <li><code>python doctor.py</code> — check what's connected, what isn't.</li>
       <li>Authenticate once per platform (a real, human-driven login — this tool never
         automates that step).</li>
-      <li>Explicitly confirm, then publish to YouTube, Bluesky, LinkedIn, or Instagram.</li>
+      <li>Point a publisher at a file, set the title, description, and visibility.</li>
+      <li>Validate — every publisher checks inputs and touches no browser or API by default,
+        until you explicitly confirm.</li>
+      <li>Pass <code>--confirm-publish</code>, then publish to YouTube, Bluesky, LinkedIn, or
+        Instagram.</li>
     </ol>
     <p>
       See the <a href="https://github.com/tradewithmeai/socials-studio#example-usage">example
-      usage</a> in the README for the exact commands.
+      usage</a> and full <a href="https://github.com/tradewithmeai/socials-studio#readme">CLI
+      reference</a> in the README for the exact commands.
     </p>
   </div>
 </section>
