@@ -5,100 +5,49 @@ description: Prepare, adapt, validate, review and publish a reel (video) or imag
 
 # Publish to Instagram
 
-Publishing runs through `auth/publish_instagram.py`, which drives a saved browser session.
-**You do not drive the browser yourself.** Call the script.
+## When to use it
+
+Drafting, reviewing, or publishing Instagram content for an already-connected account. Not for
+first-time login (`onboard-instagram`) or diagnosing a failed/uncertain publish
+(`troubleshoot-publishing`).
+
+## Instructions
 
 ```bash
+python -m auth.publish_instagram path/to/video.mp4 --caption "..."                    # validates only (default)
 python -m auth.publish_instagram path/to/video.mp4 --caption "your caption" --confirm-publish
-python -m auth.publish_instagram path/to/video.mp4 --caption "..."    # validates only -- the default
 ```
 
-Safe by default: the second form above validates only, launching nothing, even without
-`--dry-run`. `--confirm-publish` is required to actually post.
+Requires a saved session (`python -m auth.login_wizard --platform instagram`).
 
-Requires `python -m auth.login_wizard --platform instagram`.
+Before uploading, check the video:
+- **Aspect**: reels are 9:16. Build a purpose-made vertical version rather than pillarboxing a
+  landscape source.
+- **Cover frame**: frame 0 becomes the cover. If the source fades in from black, check with
+  `ffmpeg -i video.mp4 -vf "signalstats,metadata=print:file=-" -frames:v 1 -f null -` and read
+  `YAVG` -- ~7 is black (trim the fade first), ~12+ is real content.
 
-**Reel (video) publishing is live-verified end-to-end** -- the workflow below, including every
-quirk, comes from real, repeated publishes. `auth/publish_instagram.py` also accepts image files
-(`_media_type()` picks video vs. image by extension) -- that code path exists and runs the same
-upload flow, but it has **not** been independently live-verified the way video has. Treat a real
-image publish with the same caution as untested code: dry-run it first, then verify the result
-carefully (reload the profile grid) rather than assuming it behaves identically to video.
+Caption: 2,200 characters. Instagram doesn't linkify text -- point people at the bio instead of
+pasting a URL. Put hashtags at the end.
 
-Instagram is the **most fragile** of the platforms. Everything below has actually happened,
-repeatedly. Read it before posting, not after.
+Verify after posting: reload `https://www.instagram.com/p/<code>/` fresh (never `/reel/<code>/`,
+which can render another account's caption) and confirm the caption rendered and the served video
+is 720x1280 (720x720 means it was cropped).
 
-## Before you upload — check the video
+## Guardrails
 
-**Aspect.** Reels are 9:16. A landscape source gets pillarboxed into a thin strip and looks bad.
-Build a purpose-made vertical version instead — for a side-by-side comparison, stack the two panes
-vertically rather than letterboxing them. Two rules learned the hard way when building these:
+- `--confirm-publish` is required for a real publish; without it, this only validates.
+- **Reel (video) publishing is live-verified end-to-end.** Image publishing is implemented but has
+  **not** been independently live-verified -- treat a real image publish with the caution of
+  untested code: dry-run first, then verify the result carefully.
+- Never read, print, or surface `profiles/*/storage_state.json`.
 
-- Fit panes to **height** and centre them. Scaling to full width overflows 1920 and clips the bottom.
-- **Never crop vertically on a full-figure shot** — it silently removes the subject of the post.
+## Known failures and recovery
 
-**Frame 0 becomes the cover.** If the video fades in from black, the reel's tile on the profile grid
-is a black square. Measure it:
-
-```bash
-ffmpeg -i video.mp4 -vf "signalstats,metadata=print:file=-" -frames:v 1 -f null -
-```
-
-Read `YAVG`: **~7 = black**, trim the fade first (`ffmpeg -y -ss 1.2 -i in.mp4 -c copy out.mp4`);
-**~12 or above = real content**, upload as-is. Measure the file you are actually uploading — in a
-hero/spoke pair the two differ.
-
-⚠️ **Never try to set a cover through "Select from computer"** — it fails silently, appearing to
-work. Fix the source instead.
-
-## ⚠️ The 1:1 crop bug — fires on essentially every upload
-
-Instagram defaults the crop to **1:1**, squaring the frame and cutting the top and bottom off. Six
-consecutive posts hit this, **including sources already at a true 1080×1920** — so it is not a
-response to a landscape source, and "my video is already vertical" is not protection.
-
-**Measuring the `<video>` element does not detect it.** In a real case the video measured 501×893 —
-a clean 9:16 that passes any naive check — while the actual crop viewport, **five ancestors up**,
-was 501×501. The depth varies (2, then 5, then 5 on consecutive posts), so a fixed-depth check
-misses it. Walk the **whole ancestor chain** and measure the outermost crop container.
-
-Fix: open "Select Crop" and choose 9:16 (or Original). After publishing, the served video should be
-**720×1280** — if it is 720×720, it was cropped.
-
-## ⚠️ The caption drop — dismiss the hashtag typeahead before Share
-
-The caption shows perfectly in the composer, with the right character count, and the published post
-has **no caption at all**.
-
-Root cause, isolated across three trials in one quiet session: **the caption ends in hashtags, so
-Instagram's hashtag autocomplete is still open when Share is clicked, and the commit is silently
-swallowed.** Since every caption ends in hashtags, the typeahead is open at Share on essentially
-every publish.
-
-- Publish with the typeahead open → caption dropped.
-- Repair with the typeahead open, using a scripted `.click()` → silently failed.
-- Repair with the typeahead dismissed and a **real** click → worked immediately.
-
-**Prevention:** click a neutral area of the dialog first, confirm the character counter still shows
-the full caption, *then* Share. Cheap, and it removes the whole class of failure.
-
-This was previously blamed on browser contention. That was wrong — it fires with nothing else
-running. If the session is quiet, contention cannot be the cause.
-
-## Verify after posting — at `/p/`, never `/reel/`
-
-Reload the post and confirm the caption rendered.
-
-⚠️ **Check `https://www.instagram.com/p/<code>/`.** The `/reel/<code>/` URL redirects into the reels
-feed player, which renders **other accounts'** captions — so a check there returns a confident false
-result either way.
-
-Also confirm the served video is 720×1280, not 720×720.
-
-## Caption
-
-2,200 characters. Instagram doesn't linkify text, so point people at the bio rather than pasting a
-URL. Hashtags at the end — and then dismiss the typeahead, per above.
-
-If a publish fails, looks uncertain, or you suspect a duplicate, use the `troubleshoot-publishing`
-skill rather than retrying blind.
+- **Caption can silently drop on publish** -- Instagram's hashtag autocomplete can still be open
+  when Share is clicked, swallowing the commit. Cap fix attempts at two clean tries; if still gone,
+  tell the user to add it by hand.
+- **Crop can default to 1:1** even on sources already vertical -- confirm the served resolution
+  after publishing (see Instructions).
+- If a publish fails, looks uncertain, or you suspect a duplicate, use `troubleshoot-publishing`
+  rather than retrying blind.

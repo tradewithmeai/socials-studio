@@ -5,132 +5,52 @@ description: Set up Bluesky publishing for Socials Studio from scratch (login th
 
 # Bluesky onboarding
 
-Confirmed working end-to-end on a real account (2026-08-08): login, text post, and video post, all
-independently verified via Bluesky's public API and then cleaned up. This skill is the
-known-working method -- follow it, don't improvise a different one.
+## When to use it
 
-## The known-working method
+Connecting Bluesky for the first time, or a publish fails because no session exists yet. Not for
+routine publishing once connected (`publish-bluesky`) or diagnosing a failed publish
+(`troubleshoot-publishing`).
 
-Bluesky does NOT need OAuth or an API key -- it goes through the same plain-Chrome-login-then-
-Playwright-replay pattern as Instagram and LinkedIn (see `platform-login` skill /
-`auth/login_wizard.py` module docstring for why: never attempt the login itself from inside
-automation).
+## Instructions
 
-### One-time login
+1. Log in:
+   ```bash
+   python -m auth.login_wizard --platform bluesky
+   ```
+   Opens a plain Chrome window to bsky.app. Log in yourself, then close the window completely --
+   the wizard waits for it to close, then verifies the session.
+2. Verify before a real publish:
+   ```bash
+   python -m auth.publish_bluesky "test text"
+   ```
+   Validates only by default. Check for `"session_found": true`.
+3. Real publish, once verified:
+   ```bash
+   python -m auth.publish_bluesky "post text" --confirm-publish
+   python -m auth.publish_bluesky "post text" --video path/to/video.mp4 --confirm-publish
+   ```
+   Bluesky has no draft/visibility concept -- a successful publish is immediately live.
+4. Verify independently via Bluesky's public API, not the browser:
+   ```bash
+   curl -s "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=<handle>&limit=3"
+   ```
+   For a video post, confirm the record's `embed.$type` is `app.bsky.embed.video`.
+5. Clean up the test post from `https://bsky.app/profile/<handle>` (open its menu, Delete), then
+   re-check the public API to confirm it's gone.
 
-```bash
-python -m auth.login_wizard --platform bluesky
-```
+## Guardrails
 
-Opens a plain, non-automated Chrome window to bsky.app. Log in yourself, then **close that Chrome
-window completely** -- the script waits for the window to close, then verifies the session.
+- Never log in from inside automation -- always the human-driven wizard above.
+- `--confirm-publish` is required for a real publish; every command above validates only without it.
+- Never read, print, or surface `profiles/*/storage_state.json`.
+- Close every Chrome process/context you open and verify none remain before finishing.
 
-⚠️ Bluesky is a single-page app with no separate `/login` URL that disappears on success, so its
-`login_url_marker` in `auth/platforms.py` is a placeholder that never matches. Verification relies
-entirely on `logged_in_selector` (`[aria-label="Compose new post"]`) -- if that selector ever goes
-stale, verification will falsely report "not logged in" even on a real success. Check the button
-still exists on bsky.app before assuming the wizard itself is broken.
+## Known failures and recovery
 
-### Verify before a real publish
-
-```bash
-python -m auth.publish_bluesky "test text"
-```
-
-Safe by default -- this validates only and launches nothing even without `--dry-run`. Check for
-`"session_found": true`.
-
-### Real publish
-
-`--confirm-publish` is required -- without it, this only validates, same as above:
-
-```bash
-python -m auth.publish_bluesky "post text" --confirm-publish
-python -m auth.publish_bluesky "post text" --video path/to/video.mp4 --confirm-publish
-```
-
-No visibility/draft concept on Bluesky -- a successful publish is immediately live.
-
-## Required patterns for the publish flow
-
-These are already implemented in `auth/publish_bluesky.py` -- don't remove or weaken them. Each
-exists because the simpler version failed live.
-
-### Always wrap the "Add media" click in `page.expect_file_chooser()`
-
-```python
-with page.expect_file_chooser(timeout=10_000) as fc_info:
-    page.locator('[aria-label="Add media to post"]').first.click()
-fc_info.value.set_files(str(video_file))
-```
-
-Confirmed live (2026-08-08): a plain click on `[aria-label="Add media to post"]`, followed by
-`set_input_files()` on a generic `input[type=file]` locator, can fall through to a REAL native OS
-file-picker dialog outside Playwright's control (it opened Windows Explorer to an unrelated
-folder), leaving the script with no way to interact with it and an orphaned dialog/Chrome process
-behind once the context closes.
-
-### Wait for both "Uploading video" and "Processing video" to clear before checking Publish
-
-```python
-for _ in range(30):
-    uploading = page.get_by_text("Uploading video", exact=False).count()
-    processing = page.get_by_text("Processing video", exact=False).count()
-    if uploading == 0 and processing == 0:
-        break
-    page.wait_for_timeout(2000)
-```
-
-Confirmed live: the actual UI shows **"Uploading video..."** during upload, then briefly
-"Processing video...". A wait-loop checking only for "Processing" exits immediately during the
-upload phase (that text never appears yet), so the code moves on and either ships a text-only post
-with the video silently dropped, or clicks Post before the attachment finished and the post never
-goes out at all (both were observed live).
-
-### Verify independently -- don't trust a `{"status": "posted"}` return value on its own
-
-Confirmed live: a run reported success while the post never appeared on the account at all (traced
-back to a stale/locked profile from an earlier interrupted script, not a code bug -- but the point
-stands). Use the public API check below, every time.
-
-### Never leave a Chrome process running after a script ends
-
-This is the single most common cause of Bluesky (and every other platform's) automation
-"mysteriously" failing on the next attempt -- see the hard rule in the root `CLAUDE.md`. If you
-background a Playwright script and then need to inspect or continue from where it left off, you
-generally CAN'T attach a second script to the same open profile (the profile lock prevents it) --
-kill the first one cleanly, then start a fresh script that redoes the needed steps from scratch,
-screenshotting instead of narrating live.
-
-## Independent verification (no auth needed)
-
-Bluesky reads are unauthenticated via the public AT Protocol API -- use this instead of trusting
-the script's own report, and instead of trusting the composer UI mid-flow:
-
-```bash
-curl -s "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=<handle>&limit=3"
-```
-
-For a video post specifically, check the record has a genuine video embed, not just that a post
-exists:
-
-```python
-import json
-# parse the curl output, then:
-print(post["record"].get("embed", {}).get("$type"))  # expect "app.bsky.embed.video"
-```
-
-## Cleaning up a test post
-
-Not a built CLI feature. To delete during verification, from the profile page
-(`https://bsky.app/profile/<handle>`), open the post's menu and click Delete via direct JS click
-(menu button, then a menuitem/button whose innerText matches `/delete/i`) -- same reasoning as the
-composer buttons: Playwright's role-based locators are not reliably needed here, plain innerText
-matching is simpler and works consistently. Verify deletion via the public API read above, not
-just a "confirmed" click result.
-
-## Character limit
-
-300 graphemes, counted literally -- emoji count as 1 each, and a URL counts its full literal
-length rather than a fixed or shortened cost. Compose to fit before typing -- see the
-`publish-bluesky` skill (`.claude/skills/publish-bluesky/SKILL.md`) for the exact counting logic.
+- If verification reports "not logged in" right after a real login, Bluesky's login-verification
+  selector (`[aria-label="Compose new post"]`) may have gone stale -- check it still exists on
+  bsky.app before assuming the wizard is broken.
+- Video length/size limits are looser than commonly quoted -- don't pre-emptively trim a clip
+  expecting a refusal; let the platform reject it if it will.
+- 300-character limit, counted literally (emoji count as 1; a URL counts its full length) -- see
+  `publish-bluesky` for copy rules.

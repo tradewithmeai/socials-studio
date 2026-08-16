@@ -5,115 +5,74 @@ description: Set up YouTube publishing for Socials Studio from scratch (OAuth se
 
 # YouTube onboarding
 
-Confirmed working end-to-end on a real account (2026-08-06): OAuth setup, dry-run, a real
-publish with title/description/tags at public visibility, live verification via the API and a
-public oEmbed check, and deletion verified two ways. This skill is the known-working method --
-follow it, don't improvise a different one.
+## When to use it
 
-## Use OAuth, never browser automation, for YouTube/Google login
+Connecting YouTube for the first time, or a publish fails because no token exists yet. Not for
+routine publishing once connected (`publish-youtube`) or diagnosing a failed publish
+(`troubleshoot-publishing`).
 
-YouTube auth goes through Google's own sanctioned OAuth flow (`auth/setup_youtube_oauth.py`), not
-`auth/login_wizard.py` or any other browser automation. Confirmed live: Google actively detects and
-blocks sign-in attempts from automation-controlled browsers with **"This browser or app may not be
-secure,"** even with Playwright's real-Chrome channel (not bundled Chromium) -- this is a deliberate
-Google defense, not a stale-selector bug, and it is why YouTube auth works completely differently
-from the other platforms in this repo, all of which use a saved browser session instead. Let the
-user complete the OAuth consent screen themselves in a real, non-automated browser window; never
-fill in Google credentials programmatically. Always run the dry-run step before a real publish.
+## Instructions
 
-## The known-working method: OAuth + YouTube Data API
+1. One-time Google Cloud setup (the user does this themselves, in their own browser):
+   - Create a project at https://console.cloud.google.com/, logged into the account that owns the
+     target YouTube channel.
+   - Enable "YouTube Data API v3" (APIs & Services -> Library).
+   - APIs & Services -> OAuth consent screen -> External -> fill in the minimal required fields,
+     then **publish the app** (move it out of Testing) -- leaving it in Testing blocks the flow.
+   - Create Credentials -> OAuth client ID -> Application type **Desktop app** (required: the
+     redirect URI needs to be `http://localhost`).
+   - Download the client secret JSON and save it as `profiles/youtube/client_secret.json` (or pass
+     `--client-secrets <path>`).
+2. Run setup:
+   ```bash
+   python -m auth.setup_youtube_oauth
+   ```
+   Opens a real, non-automated browser to Google's consent screen. The user approves it themselves.
+   Writes `profiles/youtube/token.json` on success. Only `youtube.upload` and `youtube.readonly`
+   scopes are requested -- see [PRIVACY.md](../../../PRIVACY.md).
+3. Verify before a real publish:
+   ```bash
+   python -m auth.publish_youtube <video.mp4> --title "..." --dry-run
+   ```
+   Check for `"token_found": true`.
+4. First real publish -- requires `--confirm-publish`, exactly one of `--made-for-kids` /
+   `--not-made-for-kids`, and `--acknowledge-upload-terms`:
+   ```bash
+   python -m auth.publish_youtube <video.mp4> --title "..." --description "..." --tags "a,b,c" \
+       --visibility private --not-made-for-kids --acknowledge-upload-terms --confirm-publish
+   ```
+   Defaults to `--visibility private` if omitted; only pass `--visibility public` once the user has
+   explicitly confirmed they want it live.
+5. Verify: read the video back with `videos.list`, check the public oEmbed endpoint
+   (`https://www.youtube.com/oembed?url=...&format=json`), and to delete a test upload:
+   ```python
+   from auth.publish_youtube import _load_credentials
+   from googleapiclient.discovery import build
+   creds = _load_credentials()
+   build("youtube", "v3", credentials=creds).videos().delete(id="<VIDEO_ID>").execute()
+   ```
+   Confirm deletion both via `videos().list` (0 items) and the oEmbed check (404).
 
-YouTube publishing goes through `auth/setup_youtube_oauth.py` (one-time) then
-`auth/publish_youtube.py` (every publish) -- no browser automation involved at all, this is
-Google's own sanctioned integration path for third-party apps.
+## Guardrails
 
-### One-time setup (the user must do this themselves in their own browser)
+- Never fill in Google credentials programmatically -- the consent screen is always completed by
+  the user, in a real, non-automated browser window.
+- The upload notice (`auth.publish_youtube.UPLOAD_TERMS_NOTICE`) prints unconditionally on every
+  real-upload attempt. Actually show it to the user and get their real answer on Made for Kids --
+  don't just add flags to satisfy the CLI.
+- `--confirm-publish` is required for a real upload; without it, this only validates.
 
-1. Go to https://console.cloud.google.com/ logged into the Google account that owns the target
-   YouTube channel.
-2. Create a new project (any name).
-3. **APIs & Services -> Library** -> search "YouTube Data API v3" -> **Enable**.
-4. **APIs & Services -> OAuth consent screen** -> choose **External** -> fill in the minimal
-   required fields (app name, your email).
-5. ⚠️ **CRITICAL, confirmed the hard way**: leaving the consent screen in **Testing** mode blocked
-   the OAuth flow from completing. **Publish the app** (move it out of Testing into Production) --
-   this is what actually made it work. Don't assume "add yourself as a test user" is sufficient;
-   publishing is the verified fix.
-6. **APIs & Services -> Credentials -> Create Credentials -> OAuth client ID** -> Application
-   type: **Desktop app**. (Must be Desktop app -- the redirect URI needs to be `http://localhost`,
-   which is what `InstalledAppFlow.run_local_server` expects.)
-7. Download the resulting client secret JSON.
-8. Save it as `profiles/youtube/client_secret.json` in this repo (or anywhere, and pass
-   `--client-secrets <path>` in the next step).
+## Known failures and recovery
 
-### Run the setup
-
-```bash
-python -m auth.setup_youtube_oauth
-```
-
-This opens a **real, non-automated** browser window to Google's actual consent screen -- the user
-clicks through and approves it themselves, same as installing any app that wants YouTube access.
-On success it writes `profiles/youtube/token.json` (gitignored, never commit it). Only the
-`youtube.upload` and `youtube.readonly` scopes are requested -- see
-[PRIVACY.md](../../../PRIVACY.md) for why, and what to do if a token from before this scope was
-narrowed needs re-authorizing.
-
-### Verify before a real publish
-
-```bash
-python -m auth.publish_youtube <video.mp4> --title "..." --dry-run
-```
-
-Check the JSON output: `"token_found": true` and no error. This makes no API call and uploads
-nothing -- safe to run freely, and also the default with no flags at all.
-
-### First real publish
-
-A real upload requires three things beyond a dry run: `--confirm-publish` (the general safe-by-
-default gate every publisher in this repo uses), and two YouTube-specific requirements from the
-YouTube API Services Terms of Service -- exactly one of `--made-for-kids` / `--not-made-for-kids`
-(mutually exclusive; argparse itself rejects passing both, and a real upload refuses to proceed if
-neither is given), and `--acknowledge-upload-terms`. The exact required upload notice
-(`auth.publish_youtube.UPLOAD_TERMS_NOTICE`) prints **unconditionally** on every real-upload
-attempt, whether or not `--acknowledge-upload-terms` is already set -- so it can never be a flag
-that just silently suppresses a notice nobody saw. Actually show that printed notice to the user
-and get their real answer on Made for Kids -- don't just add the flags to satisfy the CLI.
-
-```bash
-python -m auth.publish_youtube <video.mp4> --title "..." --description "..." --tags "a,b,c" \
-    --visibility private --not-made-for-kids --acknowledge-upload-terms --confirm-publish
-```
-
-Defaults to `--visibility private` if omitted. Only pass `--visibility public` once the user has
-explicitly confirmed they want it live.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
-|---|---|---|
-| `UnicodeDecodeError` in a background thread, mentions `cp1252` | A subprocess call captured text output without specifying an encoding, and Windows' default codepage can't decode Playwright's Unicode box-drawing output | Already fixed in `auth/chrome_setup.py` (`encoding="utf-8", errors="replace"`). If it recurs in a new subprocess call on Windows, add the same. |
-| `UnicodeEncodeError` printing search/API results, mentions an emoji like `\U0001f534` | Windows console (cp1252) can't print raw Unicode/emoji from API response text | Don't print raw API text directly in a Windows console script; strip non-ASCII or set `PYTHONIOENCODING=utf-8` first. |
-| OAuth consent flow fails / "access blocked" | Consent screen still in Testing mode | Publish the app in Google Cloud Console -> OAuth consent screen (see step 5 above). |
-| Token exists but API calls fail with a scope error | Token was issued for different scopes than `auth.publish_youtube.SCOPES` -- this happens for real if you authorized before the scope was narrowed in v0.1.0-beta.2 (dropped the broad `youtube` manage scope) | Delete `profiles/youtube/token.json` and re-run `python -m auth.setup_youtube_oauth` to get a fresh token with the current, minimal scopes. |
-| Real publish exits with "requires --made-for-kids" or "--acknowledge-upload-terms" | Both are required for a real upload, enforced in code, not just docs -- neither is needed for `--dry-run` | Show the printed notice to the user, get their answer on Made for Kids, then pass `--acknowledge-upload-terms` and exactly one of `--made-for-kids` / `--not-made-for-kids`. |
-| `error: argument --not-made-for-kids: not allowed with argument --made-for-kids` | Both flags were passed together | Pass exactly one -- they're mutually exclusive by design, not a bug. |
-| `No saved YouTube token found` | `profiles/youtube/token.json` doesn't exist | Run the one-time setup above first. |
-
-## Cleaning up a test video
-
-Not a built CLI feature (deliberately -- deletion is destructive and shouldn't be one flag away
-from a normal publish). To delete a test upload during verification:
-
-```python
-from auth.publish_youtube import _load_credentials
-from googleapiclient.discovery import build
-
-creds = _load_credentials()
-yt = build("youtube", "v3", credentials=creds)
-yt.videos().delete(id="<VIDEO_ID>").execute()
-```
-
-Verify deletion actually took effect both ways -- via the API (`videos().list` returns 0 items)
-and via the public check (`https://www.youtube.com/oembed?url=...&format=json` returns 404) --
-don't trust a 200 response from `delete()` alone as proof.
+- **OAuth consent flow fails / "access blocked"**: consent screen still in Testing mode -- publish
+  the app in Cloud Console. (Testing mode also expires refresh tokens after 7 days.)
+- **Upload fails with `401 youtubeSignupRequired`**: authorized as the wrong Google account (the
+  Cloud project owner instead of the channel owner). Verify first with
+  `youtube.channels().list(part="id,snippet", mine=True).execute()` -- exactly 1 item, your
+  channel, is correct; 0 items means delete the token and re-authorize as the channel owner.
+  `python doctor.py --youtube` runs this check.
+- **Token exists but API calls fail with a scope error**: token was issued under different scopes.
+  Delete `profiles/youtube/token.json` and re-run setup.
+- Category is hardcoded to `22` (People & Blogs); tags intermittently don't persist (verify after
+  upload, re-apply with `videos.update` if missing); no thumbnail support (needs a separate
+  `thumbnails().set()` call).
