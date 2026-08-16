@@ -3,6 +3,29 @@
 This project doesn't yet follow a strict versioning scheme beyond `MAJOR.MINOR.PATCH-beta.N` --
 that will firm up once it leaves beta. Dates are when a release was tagged, not when work started.
 
+## Unreleased
+
+### Corrected
+
+- **X (Twitter) support has been restored to the advertised and agent-discoverable surface.**
+  The v0.1.0-beta.2 decision to remove X from every public-facing doc and skill (below) is
+  reversed: `auth/publish_x.py` and its login machinery were never broken or removed, and X has
+  been in active use. X is now listed alongside YouTube, Bluesky, LinkedIn, and Instagram
+  everywhere a platform list appears (README, AGENTS.md, CLAUDE.md, the website, OPENMONTAGE.md,
+  ROADMAP.md, SECURITY.md, PRIVACY.md, issue templates), `auth/platforms.py` no longer marks it
+  `dormant`, and `.claude/skills/onboard-x/SKILL.md` and `.claude/skills/publish-x/SKILL.md` are
+  active, discoverable skills again (rebuilt against the current code and skill format, not
+  restored verbatim from the dormant copies). X publishes through a saved, human-created browser
+  session via Playwright, not the X API -- the same safe-by-default validation and
+  `--confirm-publish` gate apply as every other platform.
+- **`CLAUDE.md` and `AGENTS.md` no longer point at `README.md` as authoritative for what this
+  application can currently do.** Both files previously told an agent to treat the README as "the
+  source of truth" for supported platforms, which let a documentation-only decision (removing X
+  from the advertised surface) get mistaken for a capability that had actually been removed. Both
+  files now say to read the README for install guidance and declared release status, but to
+  determine actual capabilities from the current local code, configuration, and active skills --
+  and to report a discrepancy rather than suppress a working capability when the two disagree.
+
 ## v0.1.0-beta.2 (2026-08-12)
 
 ### Removed from the advertised surface

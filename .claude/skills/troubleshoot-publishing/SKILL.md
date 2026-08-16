@@ -1,6 +1,6 @@
 ---
 name: troubleshoot-publishing
-description: Diagnose a publish that failed, hung, produced an uncertain result, or may have duplicated -- across YouTube, Bluesky, LinkedIn or Instagram. Use when a publish attempt errored, the browser closed unexpectedly, a result looks wrong, or you're unsure whether something already posted. Not for first-time login (see the platform's onboard-* skill) and not for a normal, successful publish (see the platform's publish-* skill).
+description: Diagnose a publish that failed, hung, produced an uncertain result, or may have duplicated -- across YouTube, X, Bluesky, LinkedIn or Instagram. Use when a publish attempt errored, the browser closed unexpectedly, a result looks wrong, or you're unsure whether something already posted. Not for first-time login (see the platform's onboard-* skill) and not for a normal, successful publish (see the platform's publish-* skill).
 ---
 
 # Diagnose a failed post
@@ -25,7 +25,8 @@ normal, successful publish (the platform's `publish-*` skill).
   worse than a delay. On Bluesky, use the public API
   (`https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=<handle>&limit=3`); on
   LinkedIn, match on text unique to the post via the activity feed; on Instagram, reload
-  `/p/<code>/` fresh.
+  `/p/<code>/` fresh; on X, find the profile handle dynamically and search loaded posts for text
+  unique to what you just posted (there's no public read API to check independently).
 - **Cap at ~2 clean attempts.** After that, hand the copy to the user to post by hand rather than
   burn the session.
 - Never log in from inside automation to "fix" an auth failure -- use the platform's login wizard.
@@ -45,6 +46,8 @@ normal, successful publish (the platform's `publish-*` skill).
 | LinkedIn navigation hangs after posting a video | Upload still in flight; navigating away fires `beforeunload` | Stay on the page, let it finish, confirm the composer closed, then verify. |
 | "No saved session" / a login page appears | Session expired or never established | Run the platform's login wizard -- never log in from inside automation. |
 | "Profile is already in use" / browser won't start | Another (or a stale) process holds the profile lock | Close the other run. Don't kill processes blind while a publish may be in flight. |
+| X: clicked Post, page moved on, nothing posted, an accessibility dialog was visible | The alt-text reminder ("Don't forget to make your image accessible") blocks submission until handled | Fill in real alt text and click Post again -- `publish_x.py` does this automatically; if it recurs, the dialog's buttons likely changed. |
+| X: the post reached almost nobody | Text began with `@handle`, which X classifies as a reply | Reorder the sentence so it doesn't open with a handle -- this is a reach failure, not a posting failure, so nothing will look wrong in the result. |
 
 Before reporting success: reload the post fresh and confirm the content rendered -- don't trust the
 composer or the script's own return value alone.

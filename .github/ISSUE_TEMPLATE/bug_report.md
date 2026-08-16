@@ -21,7 +21,7 @@ What should have happened instead.
 - Python version:
 - Agent driving this (Claude Code / OpenCode / Codex / other — say which, this is a beta and we're
   actively tracking which agents work cleanly):
-- Platform involved (YouTube / Bluesky / LinkedIn / Instagram):
+- Platform involved (YouTube / X / Bluesky / LinkedIn / Instagram):
 
 **Logs / output**
 Paste any error output or the JSON result here. Redact anything sensitive (usernames, tokens,

@@ -1,13 +1,13 @@
 ---
 name: platform-login
-description: Log into a social platform (Instagram, Bluesky, LinkedIn) once via a plain, non-automated Chrome window, saving the session so future posts don't require re-auth. Does NOT cover YouTube -- see onboard-youtube instead. Use when the user asks to connect/log in/authenticate a platform, or when a publish attempt fails because no saved session exists for that platform.
+description: Log into a social platform (Instagram, Bluesky, LinkedIn, X) once via a plain, non-automated Chrome window, saving the session so future posts don't require re-auth. Does NOT cover YouTube -- see onboard-youtube instead. Use when the user asks to connect/log in/authenticate a platform, or when a publish attempt fails because no saved session exists for that platform.
 ---
 
 # Platform login wizard
 
 ## When to use it
 
-The user asks to connect, log in to, or authenticate Instagram, Bluesky, or LinkedIn, a
+The user asks to connect, log in to, or authenticate Instagram, Bluesky, LinkedIn, or X, a
 publish/post attempt reports no saved session, or a session has gone stale. Not for YouTube --
 that uses OAuth, see `onboard-youtube`.
 
@@ -17,7 +17,7 @@ that uses OAuth, see `onboard-youtube`.
 python -m auth.login_wizard --platform instagram
 ```
 
-Supported platform keys: `instagram`, `bluesky`, `linkedin` (list with
+Supported platform keys: `instagram`, `bluesky`, `linkedin`, `x` (list with
 `python -m auth.login_wizard --list`). Tell the user a Chrome window will open and they need to
 log in by hand, then close that window completely when done. The wizard then verifies the session
 read-only via Playwright, without touching a login form.

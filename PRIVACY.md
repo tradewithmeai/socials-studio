@@ -28,7 +28,7 @@ machine.
 
 | Data | Location | Purpose |
 |---|---|---|
-| Browser session (cookies, local storage) for Bluesky, LinkedIn, Instagram | `profiles/<platform>/` in this repository's working directory | Lets a later publish command reuse a session you already logged into by hand, instead of asking you to log in every time |
+| Browser session (cookies, local storage) for X, Bluesky, LinkedIn, Instagram | `profiles/<platform>/` in this repository's working directory | Lets a later publish command reuse a session you already logged into by hand, instead of asking you to log in every time |
 | YouTube OAuth token (access token + refresh token) | `profiles/youtube/token.json` | Authorizes API calls to upload/manage video on your behalf, per the scopes described below |
 | Google Cloud OAuth client secret (the file you download when setting up YouTube) | Wherever you choose to save it -- the default path this tool looks for is `profiles/youtube/client_secret.json`, but `--client-secrets <path>` can point anywhere | Identifies *your* Google Cloud project to Google during the one-time OAuth setup step; not itself a per-user credential, but should still be treated as sensitive |
 
@@ -46,7 +46,7 @@ that confirms nothing under `profiles/` has been accidentally committed.
   it to bsky.app; the code that reads the YouTube token only ever calls Google's YouTube Data API.
 
 This is a claim about *this project's own code*, not about the software it runs on top of.
-Bluesky/LinkedIn/Instagram publishing uses a real Chrome browser, driven by Playwright -- both are
+X/Bluesky/LinkedIn/Instagram publishing uses a real Chrome browser, driven by Playwright -- both are
 third-party software this project does not control, audit, or modify. A real Chrome instance can
 make its own network calls this project's code never initiates or sees: update checks, Safe
 Browsing lookups, telemetry Google Chrome itself collects, DNS resolution, and so on. Playwright
@@ -56,7 +56,7 @@ disclosed here because it isn't this project's code -- see each project's own do
 
 ## Third-party services this tool talks to
 
-- **The platform you're publishing to** (Bluesky, LinkedIn, Instagram, YouTube) -- necessarily, to
+- **The platform you're publishing to** (X, Bluesky, LinkedIn, Instagram, YouTube) -- necessarily, to
   do the thing you asked it to do. Each platform has its own privacy policy governing what they do
   with your account and activity; this tool doesn't change or extend that in any way.
 - **Google**, specifically for YouTube: the OAuth consent flow and the YouTube Data API calls this
