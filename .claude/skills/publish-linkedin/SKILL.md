@@ -1,4 +1,9 @@
-# Skill: Post to LinkedIn
+---
+name: publish-linkedin
+description: Prepare, adapt, validate, review and publish text/image/video posts to an already-connected LinkedIn account. Use when the user wants to draft, review or publish a LinkedIn post -- not for first-time login (see onboard-linkedin) and not for diagnosing a failed/uncertain publish (see troubleshoot-publishing).
+---
+
+# Publish to LinkedIn
 
 Publishing runs through `auth/publish_linkedin.py`, which drives a saved browser session.
 **You do not drive the browser yourself.** Call the script.
@@ -60,4 +65,5 @@ your newest, and near-identical posts have been mistaken for each other before. 
 - **A native file dialog appears** — something clicked a file input instead of setting it. The
   script uses `set_input_files()` and never needs a picker.
 
-Anything else: `post-troubleshooting.md`.
+If a publish fails, looks uncertain, or you suspect a duplicate, use the `troubleshoot-publishing`
+skill rather than retrying blind.

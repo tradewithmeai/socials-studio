@@ -1,4 +1,9 @@
-# Skill: Post a reel to Instagram
+---
+name: publish-instagram
+description: Prepare, adapt, validate, review and publish a reel (video) or image post to an already-connected Instagram account. Use when the user wants to draft, review or publish Instagram content -- not for first-time login (see onboard-instagram) and not for diagnosing a failed/uncertain publish (see troubleshoot-publishing).
+---
+
+# Publish to Instagram
 
 Publishing runs through `auth/publish_instagram.py`, which drives a saved browser session.
 **You do not drive the browser yourself.** Call the script.
@@ -11,7 +16,14 @@ python -m auth.publish_instagram path/to/video.mp4 --caption "..."    # validate
 Safe by default: the second form above validates only, launching nothing, even without
 `--dry-run`. `--confirm-publish` is required to actually post.
 
-Video only — this posts reels. Requires `python -m auth.login_wizard --platform instagram`.
+Requires `python -m auth.login_wizard --platform instagram`.
+
+**Reel (video) publishing is live-verified end-to-end** -- the workflow below, including every
+quirk, comes from real, repeated publishes. `auth/publish_instagram.py` also accepts image files
+(`_media_type()` picks video vs. image by extension) -- that code path exists and runs the same
+upload flow, but it has **not** been independently live-verified the way video has. Treat a real
+image publish with the same caution as untested code: dry-run it first, then verify the result
+carefully (reload the profile grid) rather than assuming it behaves identically to video.
 
 Instagram is the **most fragile** of the platforms. Everything below has actually happened,
 repeatedly. Read it before posting, not after.
@@ -88,4 +100,5 @@ Also confirm the served video is 720×1280, not 720×720.
 2,200 characters. Instagram doesn't linkify text, so point people at the bio rather than pasting a
 URL. Hashtags at the end — and then dismiss the typeahead, per above.
 
-Anything else: `post-troubleshooting.md`.
+If a publish fails, looks uncertain, or you suspect a duplicate, use the `troubleshoot-publishing`
+skill rather than retrying blind.

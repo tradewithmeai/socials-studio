@@ -12,8 +12,9 @@ known-working method -- follow it, don't improvise a different one.
 ## The known-working method
 
 Bluesky does NOT need OAuth or an API key -- it goes through the same plain-Chrome-login-then-
-Playwright-replay pattern as X and Instagram (see `platform-login` skill / `auth/login_wizard.py`
-module docstring for why: never attempt the login itself from inside automation).
+Playwright-replay pattern as Instagram and LinkedIn (see `platform-login` skill /
+`auth/login_wizard.py` module docstring for why: never attempt the login itself from inside
+automation).
 
 ### One-time login
 
@@ -122,14 +123,14 @@ print(post["record"].get("embed", {}).get("$type"))  # expect "app.bsky.embed.vi
 ## Cleaning up a test post
 
 Not a built CLI feature. To delete during verification, from the profile page
-(`https://bsky.app/profile/<handle>`), open the post's menu and click Delete -- the private repo's
-proven selector pattern (menu button, then a menuitem/button whose innerText matches `/delete/i`)
-works via direct JS click, same reasoning as the composer buttons: Playwright's role-based
-locators are not reliably needed here, plain innerText matching is simpler and has worked
-consistently. Verify deletion via the public API read above, not just a "confirmed" click result.
+(`https://bsky.app/profile/<handle>`), open the post's menu and click Delete via direct JS click
+(menu button, then a menuitem/button whose innerText matches `/delete/i`) -- same reasoning as the
+composer buttons: Playwright's role-based locators are not reliably needed here, plain innerText
+matching is simpler and works consistently. Verify deletion via the public API read above, not
+just a "confirmed" click result.
 
 ## Character limit
 
-300 graphemes (emoji count as 1, unlike X's weighted-2; URLs count their full literal length, not
-a fixed cost). Compose to fit before typing -- see the character-limit notes carried over in
-`.claude/skills/bluesky.md` if you need the exact counting logic.
+300 graphemes, counted literally -- emoji count as 1 each, and a URL counts its full literal
+length rather than a fixed or shortened cost. Compose to fit before typing -- see the
+`publish-bluesky` skill (`.claude/skills/publish-bluesky/SKILL.md`) for the exact counting logic.

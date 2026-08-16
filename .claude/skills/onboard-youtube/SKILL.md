@@ -17,9 +17,9 @@ YouTube auth goes through Google's own sanctioned OAuth flow (`auth/setup_youtub
 blocks sign-in attempts from automation-controlled browsers with **"This browser or app may not be
 secure,"** even with Playwright's real-Chrome channel (not bundled Chromium) -- this is a deliberate
 Google defense, not a stale-selector bug, and it is why YouTube auth works completely differently
-from X/Bluesky/LinkedIn/Instagram in this repo. Let the user complete the OAuth consent screen themselves in
-a real, non-automated browser window; never fill in Google credentials programmatically. Always run
-the dry-run step before a real publish.
+from the other platforms in this repo, all of which use a saved browser session instead. Let the
+user complete the OAuth consent screen themselves in a real, non-automated browser window; never
+fill in Google credentials programmatically. Always run the dry-run step before a real publish.
 
 ## The known-working method: OAuth + YouTube Data API
 

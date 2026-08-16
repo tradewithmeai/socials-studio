@@ -13,7 +13,7 @@ debugging cycle.
 
 ## The known-working method
 
-Same plain-Chrome-login-then-Playwright-replay pattern as X, Instagram, and Bluesky (see the
+Same plain-Chrome-login-then-Playwright-replay pattern as Instagram and Bluesky (see the
 `platform-login` skill / `auth/login_wizard.py` module docstring for why: never attempt the
 login itself from inside automation).
 
@@ -45,11 +45,12 @@ python -m auth.publish_linkedin "post text" --confirm-publish
 python -m auth.publish_linkedin "post text" --video path/to/video.mp4 --confirm-publish
 ```
 
-⚠️ **This publishes immediately** -- there is no draft/review step once Post is clicked.
-Per the account's own posting policy (carried over from the private repo, see
-`.claude/skills/linkedin.md`): LinkedIn is milestones-only, not part of a daily rotation. Confirm
-with the user this is actually a milestone/announcement before posting for real, not just before
-running a mechanism test.
+⚠️ **This publishes immediately** -- there is no draft/review step once Post is clicked. LinkedIn
+also carries more reputational weight than most platforms this repo publishes to, and how often
+someone wants to post there is a personal choice, not something to assume. Before the first real
+publish, ask the user how they want to use LinkedIn here -- milestones and announcements only, a
+regular part of their posting rhythm, or something else -- and follow whatever they say. Don't
+carry over any one operator's convention as if it were a rule for everyone.
 
 ## Required patterns for the video path
 

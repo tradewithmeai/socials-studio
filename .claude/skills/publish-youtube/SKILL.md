@@ -1,4 +1,9 @@
-# Skill: Upload to YouTube
+---
+name: publish-youtube
+description: Prepare, validate, review and publish a video to an already-authorized YouTube channel. Use when the user wants to draft, review or upload a YouTube video -- not for first-time OAuth setup (see onboard-youtube) and not for diagnosing a failed/uncertain publish (see troubleshoot-publishing).
+---
+
+# Publish to YouTube
 
 YouTube is **not browser automation**. It uses OAuth and the official Data API — deliberately, and
 permanently. Google actively blocks sign-in from automation-controlled browsers ("This browser or
@@ -87,3 +92,6 @@ entities and numbers — that is what search rewards.
 
 Read the video back with `videos.list` and confirm title, description, tags, category and privacy
 all actually stuck. Do not trust the insert response alone — see the tags defect above.
+
+If a publish fails, looks uncertain, or you suspect a duplicate, use the `troubleshoot-publishing`
+skill rather than retrying blind.

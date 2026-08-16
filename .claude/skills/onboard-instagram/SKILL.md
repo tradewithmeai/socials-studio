@@ -5,10 +5,17 @@ description: Set up Instagram publishing for Socials Studio from scratch (login 
 
 # Instagram onboarding
 
-Confirmed working end-to-end on a real account (2026-08-08): login, video upload with crop and
-share all working, independently verified live. One real, reproducible platform bug was found and
-is documented below rather than "fixed," because two clean attempts at the standard fix both
+Confirmed working end-to-end on a real account (2026-08-08): login, **video** upload with crop
+and share all working, independently verified live. One real, reproducible platform bug was found
+and is documented below rather than "fixed," because two clean attempts at the standard fix both
 failed the same way -- don't keep retrying it blindly.
+
+`auth/publish_instagram.py` also accepts image files (`_media_type()` detects the extension, and
+the crop step handles an `<img>` the same way it handles a `<video>`) -- but that path has **not**
+been independently live-verified the way the video roundtrip above has. Treat a real image publish
+here with the same caution as untested code: dry-run it, and confirm the result carefully (profile
+grid, fresh reload) rather than assuming it works identically to video just because the code path
+exists.
 
 ## The login architecture (read this first)
 
@@ -64,8 +71,8 @@ clicked = page.evaluate("""() => {
 Confirmed live: `page.get_by_role("link", name="Post")` found **zero** matches even though the
 element is a real `<a role="link">Post</a>` in the DOM (verified independently via
 `querySelector`) -- some quirk in how Playwright computes the accessible name for this specific
-element. A plain JS click by exact innerText works every time; this is also the private repo's
-own long-standing convention for Instagram's dialog controls, not something invented for this fix.
+element. A plain JS click by exact innerText works every time, and it's the reliable pattern for
+Instagram's dialog controls generally, not just this one button.
 
 ### Use direct JS `.click()` for the crop-selector control, not Playwright's `.click()`
 
@@ -103,13 +110,16 @@ Confirmed live, twice, with two independent clean attempts at the standard fix (
 Options" -> Edit, retype the caption with real keystrokes, confirm the on-screen character
 counter shows the right count, click Done, then reload the post fresh) -- both attempts showed the
 caption correctly in the editor and in the counter immediately before confirming, and both still
-showed **no caption at all** on a completely fresh page reload afterward. This matches the private
-repo's own long-documented history of this exact bug (see `.claude/skills/instagram.md`,
-`post-troubleshooting.md` Symptom E) -- it is a genuine, known-flaky platform behavior, not a
-scripting mistake in this codebase.
+showed **no caption at all** on a completely fresh page reload afterward. This is a genuine,
+known-flaky platform behavior, not a scripting mistake in this codebase -- the root cause is that
+the caption's hashtags leave Instagram's autocomplete typeahead open when Share is clicked, and
+that in-flight commit gets silently swallowed. See the `publish-instagram` skill and
+`troubleshoot-publishing` Symptom E for the full pattern and the fix (dismiss the typeahead with a
+real click before Share).
 
-**Do not keep retrying the fix.** Cap at two clean attempts, same as the private repo's own rule.
-If it's still gone after that, tell the user directly that the caption needs to be added by hand,
+**Do not keep retrying the fix.** Cap at two clean attempts -- each attempt risks re-triggering the
+same typeahead-swallow race, so grinding on it burns the session without improving the odds. If
+it's still gone after that, tell the user directly that the caption needs to be added by hand,
 rather than continuing to grind on an automated fix. The video/media itself publishes reliably;
 it's specifically the caption-after-publish path that's flaky.
 
@@ -130,11 +140,11 @@ specific ID -- don't trust the delete action's own return value.
 ## Known quirks
 
 - **A reel's cover frame defaults to frame 0**, which is black if the source video fades in from
-  black -- not encountered as a live bug in this session's specific test video, but documented
-  extensively in the private repo's history (`.claude/skills/instagram.md`) as the single most
-  recurring Instagram quality issue there. If a published video's thumbnail looks black on the
-  profile grid, that's almost certainly this, not a publish failure -- see that file for the
-  trim-before-upload fix.
+  black -- not encountered as a live bug in this session's specific test video, but the single most
+  recurring Instagram quality issue documented in the `publish-instagram` skill
+  (`.claude/skills/publish-instagram/SKILL.md`). If a published video's thumbnail looks black on
+  the profile grid, that's almost certainly this, not a publish failure -- see that skill for the
+  trim-before-upload fix (measure `YAVG` on frame 0 with ffmpeg; trim if it reads black).
 - **Chrome will show "Didn't shut down correctly, restore pages?" on the next launch of this
   profile, every time** -- known, harmless upstream Playwright/Chrome interaction, not data loss.
 - If a publish result looks suspicious, don't try to "keep the browser open" with a standalone

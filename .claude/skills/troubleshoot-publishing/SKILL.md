@@ -1,4 +1,9 @@
-# Skill: diagnose a failed post
+---
+name: troubleshoot-publishing
+description: Diagnose a publish that failed, hung, produced an uncertain result, or may have duplicated -- across YouTube, Bluesky, LinkedIn or Instagram. Use when a publish attempt errored, the browser closed unexpectedly, a result looks wrong, or you're unsure whether something already posted. Not for first-time login (see the platform's onboard-* skill) and not for a normal, successful publish (see the platform's publish-* skill).
+---
+
+# Diagnose a failed post
 
 When a post won't go out, **do not guess and do not keep retrying the same action.** Work the
 checklist. Each publisher runs a **visible** Chrome window (`headless=False`), so you have two
@@ -51,13 +56,8 @@ An "Upgrade to Premium" nag is **not** a blocker — it is an upsell. The blocke
 
 | # | Cause | Tell | Fix |
 |---|---|---|---|
-| D2 | **Pressing Escape opened a "Save/Discard" sheet** stacked on another dialog | Two confirmation sheets present | Never press Escape to dismiss a typeahead. Target buttons by accessible name |
-| D3 | **Content silently filtered** | Nothing on the profile after several checks; a text-only version works | Try without the link, or move the link to a reply |
-
-(D1 was X-specific and moved to `.claude/dormant/x-troubleshooting-symptoms.md` -- X is not a
-supported platform in this release. Numbering kept as D2/D3 rather than renumbered, since nothing
-else in this repo references D1 by number and renumbering existing IDs risks a future reader
-misreading a stale external note.)
+| D1 | **Pressing Escape opened a "Save/Discard" sheet** stacked on another dialog | Two confirmation sheets present | Never press Escape to dismiss a typeahead. Target buttons by accessible name |
+| D2 | **Content silently filtered** | Nothing on the profile after several checks; a text-only version works | Try without the link, or move the link to a reply |
 
 ## Symptom E — Instagram reel published but the caption is empty
 

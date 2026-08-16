@@ -1,4 +1,9 @@
-# Skill: Post to Bluesky
+---
+name: publish-bluesky
+description: Prepare, adapt, validate, review and publish text/image/video posts to an already-connected Bluesky account. Use when the user wants to draft, review or publish a Bluesky post -- not for first-time login (see onboard-bluesky) and not for diagnosing a failed/uncertain publish (see troubleshoot-publishing).
+---
+
+# Publish to Bluesky
 
 Publishing runs through `auth/publish_bluesky.py`, which drives a saved browser session.
 **You do not drive the browser yourself.** Call the script.
@@ -62,4 +67,5 @@ success on a post that never landed.
 one), so a bare selector fails Playwright's strict mode. Scope it — `nav [aria-label="Compose new
 post"]` — or take `.first`. This also affects the `logged_in_selector` in `auth/platforms.py`.
 
-Anything else: `post-troubleshooting.md`.
+If a publish fails, looks uncertain, or you suspect a duplicate, use the `troubleshoot-publishing`
+skill rather than retrying blind.
