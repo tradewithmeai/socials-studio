@@ -16,10 +16,12 @@ release are one-way, public actions.
    "Session data is not committed."
 5. Search for stale version references: `grep -rn "beta\.1" --include="*.md" --include="*.html" .`
    and confirm every hit is either historical (CHANGELOG's own beta.1 section) or intentional.
-6. Search for reintroduced public claims that X is supported:
+6. Confirm X (Twitter) is listed consistently as a supported platform, not stale "not supported"
+   language reappearing from an old branch or draft:
    `grep -rniE "\bx\b|twitter" README.md docs/index.html ROADMAP.md AGENTS.md CLAUDE.md .github/ISSUE_TEMPLATE/`
-   and confirm every hit is either the intentional "not supported" disclosure or unrelated noise
-   (e.g. CSS `overflow-x`, the `twitter:card` meta tag standard).
+   and confirm every hit either lists X alongside the other supported platforms or is unrelated
+   noise (e.g. CSS `overflow-x`, the `twitter:card` meta tag standard) -- flag anything that still
+   says X isn't supported.
 7. Update `CHANGELOG.md`'s `(unreleased)` heading to the real release date.
 8. Update the version string in `README.md`'s beta line and `ROADMAP.md`'s `## Now` heading if
    they don't already match the version being tagged.

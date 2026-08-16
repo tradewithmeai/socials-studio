@@ -4,11 +4,12 @@
 
 Socials Studio uses two different authentication mechanisms, not one:
 
-- **Bluesky, LinkedIn, Instagram** use a saved **browser session** created by
+- **X, Bluesky, LinkedIn, Instagram** use a saved **browser session** created by
   `auth/login_wizard.py`. You log in by hand in a plain, non-automated Chrome window; the
   resulting session (cookies, local storage) is saved under `profiles/<platform>/` and replayed by
-  Playwright for later publishing. `auth/publish_bluesky.py`, `auth/publish_linkedin.py`, and
-  `auth/publish_instagram.py` are the modules that drive a browser using these sessions.
+  Playwright for later publishing. `auth/publish_x.py`, `auth/publish_bluesky.py`,
+  `auth/publish_linkedin.py`, and `auth/publish_instagram.py` are the modules that drive a browser
+  using these sessions.
 - **YouTube** uses **OAuth 2.0 + the official YouTube Data API** (`auth/setup_youtube_oauth.py`,
   `auth/publish_youtube.py`) -- no browser automation at all for this platform. This requires
   **your own Google Cloud OAuth client**: you create a Google Cloud project, enable the YouTube
@@ -39,8 +40,7 @@ Based on reading this codebase (last reviewed alongside this file's rewrite for 
 | Module | Touches |
 |---|---|
 | `auth/login_wizard.py` | A real, human-driven Chrome process (login step) and Playwright-driven Chrome (verification step); reads/writes `profiles/<platform>/` |
-| `auth/publish_bluesky.py`, `auth/publish_linkedin.py`, `auth/publish_instagram.py` | Playwright-driven Chrome against the saved session; reads whatever media file path you pass in; contacts that platform's website |
-| `auth/publish_x.py` | Same shape as the above three -- present in the codebase and functional, but not advertised as a supported platform in this release (see CHANGELOG.md) |
+| `auth/publish_x.py`, `auth/publish_bluesky.py`, `auth/publish_linkedin.py`, `auth/publish_instagram.py` | Playwright-driven Chrome against the saved session; reads whatever media file path you pass in; contacts that platform's website |
 | `auth/setup_youtube_oauth.py` | Opens a plain browser to Google's real OAuth consent screen (not automated); reads the client secret JSON you point it at; writes `profiles/youtube/token.json` |
 | `auth/publish_youtube.py` | Calls the YouTube Data API over HTTPS via `google-api-python-client`; reads `profiles/youtube/token.json` and the video file path you pass in |
 | `auth/chrome_setup.py` | Runs `playwright install chrome` (downloads a Chrome build over the network the first time) and locates your system Chrome install |
@@ -65,7 +65,7 @@ Chrome's own installer:
 
 ### Browser automation risk (not a code vulnerability, but a real risk)
 
-Automating a real browser session against Bluesky, LinkedIn, or Instagram carries risks beyond
+Automating a real browser session against X, Bluesky, LinkedIn, or Instagram carries risks beyond
 this codebase's own security:
 
 - **Account risk.** These platforms actively look for automation signals. This project's design
@@ -81,15 +81,16 @@ this codebase's own security:
   absolve. YouTube uses the official Data API specifically because Google blocks the browser-
   automation alternative outright.
 
-  Bluesky, LinkedIn, and Instagram each **do** offer an official publishing API --
+  X, Bluesky, LinkedIn, and Instagram each **do** offer an official publishing API -- X's API v2,
   [Bluesky's `createPost`](https://docs.bsky.app/docs/tutorials/creating-a-post),
   [LinkedIn's Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api),
   and [Instagram's Content Publishing API](https://developers.facebook.com/documentation/instagram-platform/content-publishing.md/)
   all exist and are documented. What differs per platform is access requirements (developer app
-  review, business/creator account requirements, rate limits) and feature coverage relative to
-  what this project's browser-driven publishers currently do. This beta uses browser automation
-  for those three platforms because that's what's implemented today, not because no API exists --
-  migrating some or all of them to their official APIs remains under evaluation; see
+  review, business/creator account requirements, rate limits, and for X specifically, paid API
+  tier pricing) and feature coverage relative to what this project's browser-driven publishers
+  currently do. This beta uses browser automation for those platforms because that's what's
+  implemented today, not because no API exists -- migrating some or all of them to their official
+  APIs remains under evaluation; see
   [ROADMAP.md](ROADMAP.md). Until/unless that happens, the browser-automation risks below apply.
 
 ## Reporting a vulnerability

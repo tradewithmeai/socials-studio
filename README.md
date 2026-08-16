@@ -14,10 +14,9 @@ review, authentication and publication.
 > Socials Studio is an independent community project. It is not affiliated with, maintained by, or
 > endorsed by OpenMontage.
 
-**Public beta — v0.1.0-beta.2.** Publish videos and posts to YouTube, Bluesky, LinkedIn and
-Instagram -- see [Testing status](#testing-status) below before you point this at a real account.
-X (Twitter) is not presented as a supported platform in this release -- see
-[CHANGELOG.md](CHANGELOG.md) for why.
+**Public beta — v0.1.0-beta.2.** Publish videos and posts to YouTube, X (Twitter), Bluesky,
+LinkedIn and Instagram -- see [Testing status](#testing-status) below before you point this at a
+real account.
 
 > **This beta is built and tested with [Claude Code](https://claude.com/claude-code)** -- it's the
 > only coding agent this has been validated with so far (see
@@ -53,12 +52,12 @@ else, or with no video at all.
 2. **Review** -- Point Socials Studio at the file and set the title, description, and visibility.
    Every publisher validates by default and touches nothing until you explicitly confirm -- see
    [Publishing safety](#publishing-safety) below.
-3. **Publish** -- Authenticate once, then publish to YouTube, Bluesky, LinkedIn or Instagram.
+3. **Publish** -- Authenticate once, then publish to YouTube, X, Bluesky, LinkedIn or Instagram.
    Uploads default to private/draft where supported so you can review the live result yourself
    before making it public.
 
 ```
-OpenMontage export -> Socials Studio review -> publish to YouTube, Bluesky, LinkedIn or Instagram
+OpenMontage export -> Socials Studio review -> publish to YouTube, X, Bluesky, LinkedIn or Instagram
 ```
 
 That's the single-video, single-post path. It's not the ceiling -- see the next section for what
@@ -83,7 +82,7 @@ packages a workflow that already works into something more repeatable. You can a
 - Adapt each post to the rules and conventions of its destination platform.
 - Present the whole campaign for your review before anything goes out, and validate every result
   -- every publisher here is safe-by-default and touches nothing until you explicitly confirm.
-- Publish approved posts through the existing publishers (YouTube, Bluesky, LinkedIn, Instagram).
+- Publish approved posts through the existing publishers (YouTube, X, Bluesky, LinkedIn, Instagram).
 - Inspect subsequent activity on published posts, on request, and use those observations to
   prepare or recommend the next round of content.
 - Add another social platform -- ask Claude Code to extend the repository following the existing
@@ -128,11 +127,12 @@ without OpenMontage context available. See [OPENMONTAGE.md](OPENMONTAGE.md) for 
 
 ## Supported platforms
 
-Publish videos and posts to YouTube, Bluesky, LinkedIn and Instagram.
+Publish videos and posts to YouTube, X (Twitter), Bluesky, LinkedIn and Instagram.
 
 | Platform | How it authenticates | Publish | Notes |
 |---|---|---|---|
 | YouTube | OAuth + Data API | Yes | No browser at all. Google blocks automated sign-in, so this is the official API path. Needs your own Google Cloud OAuth client -- see setup below |
+| X (Twitter) | Saved browser session | Yes | Text, image or video. Uses browser automation via a saved login session, not the X API -- selectors can break if X changes its interface |
 | Bluesky | Saved browser session | Yes | Text, image or video |
 | LinkedIn | Saved browser session | Yes | Text, image or video. Media can never be added to a post after publishing |
 | Instagram | Saved browser session | Yes | Reels (video) |
@@ -164,7 +164,7 @@ YouTube additionally requires exactly one of `--made-for-kids` / `--not-made-for
 
 ## Testing status
 
-This beta has been **developed with Claude Code**. Publishing has been tested for YouTube,
+This beta has been **developed with Claude Code**. Publishing has been tested for YouTube, X,
 Bluesky, LinkedIn and Instagram, including with OpenMontage-rendered video.
 
 This is exactly what the beta is for. If you run this against a real account -- with OpenMontage
@@ -230,7 +230,7 @@ changes the requested scopes, a token issued under the old ones will fail on ref
 has changed" error rather than silently keep working -- delete `profiles/youtube/token.json` and
 re-run setup if that happens.
 
-For **Bluesky, LinkedIn and Instagram**, log into each platform once. A real Chrome window opens
+For **X, Bluesky, LinkedIn and Instagram**, log into each platform once. A real Chrome window opens
 to that platform's login page -- log in yourself, same as you normally would:
 
 ```bash
@@ -285,7 +285,7 @@ Neither is required for `--dry-run`.
 ## Troubleshooting
 
 - **`No saved <platform> session found`** -- run the login wizard for that platform first; the
-  publish command reads from `profiles/<platform>/`. This applies to Bluesky, LinkedIn, and
+  publish command reads from `profiles/<platform>/`. This applies to X, Bluesky, LinkedIn, and
   Instagram, which authenticate via a saved browser session.
 - **`No YouTube token found`** -- YouTube doesn't use a browser session at all; run
   `python -m auth.setup_youtube_oauth` first. It writes `profiles/youtube/token.json`.

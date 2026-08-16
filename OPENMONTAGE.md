@@ -65,7 +65,7 @@ copy that echoes the video's real hook and tone, instead of being guessed from t
 
 ## Supported publishing destinations
 
-YouTube, Bluesky, LinkedIn, and Instagram -- see
+YouTube, X (Twitter), Bluesky, LinkedIn, and Instagram -- see
 [README.md's Supported platforms table](README.md#supported-platforms) for exactly what each one
 supports (text, image, video) and how authentication works for it.
 
@@ -79,7 +79,7 @@ supports (text, image, video) and how authentication works for it.
 - The `openmontage-context` skill only helps if you're using Claude Code and the OpenMontage
   project's artifacts are present and findable; it degrades gracefully (asks, or works from just
   the video file) when they aren't.
-- Bluesky, LinkedIn, and Instagram publish via browser automation against your own logged-in
+- X, Bluesky, LinkedIn, and Instagram publish via browser automation against your own logged-in
   session, not an official API -- see [SECURITY.md](SECURITY.md) for the risk tradeoffs of that
   approach and why it's what this project does today.
 - This project has not been accepted, merged, or endorsed by OpenMontage in any way. Any future

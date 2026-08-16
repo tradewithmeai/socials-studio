@@ -6,13 +6,10 @@ this develops; that's not a promise every request gets built.
 
 ## Now (v0.1.0-beta.2)
 
-- Login wizard: Bluesky, LinkedIn, Instagram.
-- Publish: YouTube, Bluesky, LinkedIn, Instagram.
+- Login wizard: X, Bluesky, LinkedIn, Instagram.
+- Publish: YouTube, X, Bluesky, LinkedIn, Instagram.
 - Safe-by-default: every publisher validates only unless `--confirm-publish` is explicitly
   passed; `--dry-run` remains available as an explicit way to request the same thing.
-- X (Twitter) is not presented as a supported platform in this release -- see
-  [CHANGELOG.md](CHANGELOG.md). The implementation (`auth/publish_x.py`) is untouched and
-  functional; its future is undecided.
 
 ## Not available yet (the two genuine gaps)
 
@@ -29,9 +26,9 @@ These are the only capabilities that are actually missing today, not just unpack
 
 - Package proven agent-led workflows (see the two gaps above, once a working pattern exists) into
   dedicated, tested skills -- more discoverable and repeatable, not a new capability boundary.
-- Evaluate migrating Bluesky, LinkedIn, and/or Instagram from browser automation to their
-  official publishing APIs (Bluesky's `createPost`, LinkedIn's Posts API, Instagram's Content
-  Publishing API) -- each exists and is documented; what's unevaluated is the access requirements
+- Evaluate migrating X, Bluesky, LinkedIn, and/or Instagram from browser automation to their
+  official publishing APIs (X's API v2, Bluesky's `createPost`, LinkedIn's Posts API, Instagram's
+  Content Publishing API) -- each exists and is documented; what's unevaluated is the access requirements
   (developer app review, account type requirements, rate limits) and feature-coverage tradeoff
   against what the current browser-driven publishers do. See [SECURITY.md](SECURITY.md) for the
   risk rationale behind considering this at all.

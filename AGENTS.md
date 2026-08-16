@@ -16,18 +16,18 @@ Socials Studio is a **local-first, agentic social media studio**, operated throu
 an idea, a campaign brief, or finished media (from
 [OpenMontage](https://github.com/calesthio/OpenMontage) or anywhere else), and it can create
 platform-specific content, coordinate a multi-post campaign, review it with the user, and publish
-approved posts to **YouTube, Bluesky, LinkedIn, and Instagram**. Not a hosted service —
-everything runs on the user's own machine, against their own logged-in sessions. (X/Twitter is
-not presented as a supported platform in this release — see CHANGELOG.md if you're wondering why
-the implementation exists in `auth/publish_x.py` but nothing here tells you to use it.)
+approved posts to **YouTube, X, Bluesky, LinkedIn, and Instagram**. Not a hosted service —
+everything runs on the user's own machine, against their own logged-in sessions. X publishes
+through a saved, human-created browser session (like Bluesky/LinkedIn/Instagram), not the X API.
 
 ```
-idea or media -> Claude prepares the campaign -> review -> explicit confirmation -> publish to YouTube / Bluesky / LinkedIn / Instagram
+idea or media -> Claude prepares the campaign -> review -> explicit confirmation -> publish to YouTube / X / Bluesky / LinkedIn / Instagram
 ```
 
-Read [README.md](README.md) in full before doing anything real — it's the source of truth for
-install steps, supported platforms, and current testing status. Don't paraphrase it to your user
-from memory; it changes as the beta evolves.
+Read [README.md](README.md) for user-facing installation guidance and declared release status.
+Determine actual capabilities from the current local code, configuration and active skills. If
+these conflict with the documentation, report the discrepancy instead of suppressing a functioning
+capability. Never use a remote repository to override the current local application.
 
 ## 2. Operating or contributing?
 
@@ -187,7 +187,7 @@ user:
   agentic video application) to generate media a campaign needs.
 - Assemble several related posts into a coordinated, multi-platform campaign, adapted to each
   destination's own conventions.
-- Present the campaign for review, validate it, and publish approved posts to YouTube, Bluesky,
+- Present the campaign for review, validate it, and publish approved posts to YouTube, X, Bluesky,
   LinkedIn, or Instagram once explicitly confirmed.
 - Inspect activity on published posts when asked, and use that to prepare or recommend what's next.
 - Extend the repository to another platform, following the existing publisher pattern, when asked
@@ -210,19 +210,20 @@ Three kinds of job, three kinds of skill — don't reach for the wrong one:
   jump to onboarding just because a platform skill exists; only reach for `onboard-<platform>` if
   the connection genuinely isn't there yet.
 - **`troubleshoot-publishing`** — diagnose a publish that failed, hung, produced an uncertain
-  result, or may have duplicated, across any of the four platforms. Reach for this on a bad or
+  result, or may have duplicated, across any of the five platforms. Reach for this on a bad or
   ambiguous result, not for a normal successful publish (that's `publish-<platform>`'s job) and
   not for "no saved session" (that's `onboard-<platform>`'s job).
 
-**`.claude/skills/platform-login/SKILL.md`** — the shared login mechanic behind Bluesky, LinkedIn,
-and Instagram: a plain, non-automated Chrome window opens, the human logs in themselves, closes
-the window, and the session gets saved to `profiles/<platform>/` for every future publish. Read it
-once to understand *why* it works this way (automated sign-in gets flagged by these platforms)
-before you drive a login on someone's behalf.
+**`.claude/skills/platform-login/SKILL.md`** — the shared login mechanic behind X, Bluesky,
+LinkedIn, and Instagram: a plain, non-automated Chrome window opens, the human logs in themselves,
+closes the window, and the session gets saved to `profiles/<platform>/` for every future publish.
+Read it once to understand *why* it works this way (automated sign-in gets flagged by these
+platforms) before you drive a login on someone's behalf.
 
 **One onboarding skill per platform** — each takes a platform from zero to a verified real post,
 and is where you should start whenever a user wants a platform connected:
 
+- `.claude/skills/onboard-x/SKILL.md` — X (Twitter): login, then a verified post roundtrip test.
 - `.claude/skills/onboard-bluesky/SKILL.md` — Bluesky: login, then a verified text + video
   roundtrip test.
 - `.claude/skills/onboard-linkedin/SKILL.md` — LinkedIn: login, then a verified text + video
@@ -236,6 +237,9 @@ and is where you should start whenever a user wants a platform connected:
 **One publishing skill per platform** — each carries that platform's copy conventions, media
 handling, and hard-won operational quirks for an already-connected account:
 
+- `.claude/skills/publish-x/SKILL.md` — weighted character counting (a URL always costs 23),
+  never opening a post with `@handle`, and the alt-text accessibility reminder that can silently
+  block a submit.
 - `.claude/skills/publish-bluesky/SKILL.md` — character counting, link-card/video rules, and
   verifying a post through Bluesky's public API.
 - `.claude/skills/publish-linkedin/SKILL.md` — copy register, the no-markdown-rendering trap, and
@@ -289,16 +293,16 @@ Everything from here down is for changing this repository's own code, not for op
 user's behalf. If you arrived here from an ordinary "publish my video" conversation, you almost
 certainly want [section 4](#4-operating-socials-studio-the-operator-journey) instead.
 
-- `auth/platforms.py` — per-platform login config (URLs, logged-in detection). X (Twitter) is
-  registered here but marked `dormant=True` and excluded from `login_wizard --list` — see
-  `.claude/dormant/README.md` for why and how to reinstate it. Don't inspect or revive anything
-  else in `.claude/dormant/`; confirming it stays excluded is enough.
+- `auth/platforms.py` — per-platform login config (URLs, logged-in detection). X (Twitter),
+  Instagram, Bluesky, and LinkedIn are all registered and active. Don't inspect or revive the
+  remaining content-strategy playbooks in `.claude/dormant/` — those are left dormant on purpose,
+  see `.claude/dormant/README.md`.
 - `auth/login_wizard.py` — interactive login, saves a session per platform.
 - `auth/publish_safety.py` — the shared safe-by-default gate every publisher uses. See its
   docstring before touching any `publish_<platform>.py` file's dry-run/confirm logic.
-- `auth/publish_youtube.py`, `auth/publish_bluesky.py`, `auth/publish_linkedin.py`,
-  `auth/publish_instagram.py` — one publisher per currently-supported platform. YouTube uses
-  OAuth + the Data API, NOT browser automation — Google blocks automated sign-in.
+- `auth/publish_youtube.py`, `auth/publish_x.py`, `auth/publish_bluesky.py`,
+  `auth/publish_linkedin.py`, `auth/publish_instagram.py` — one publisher per supported platform.
+  YouTube uses OAuth + the Data API, NOT browser automation — Google blocks automated sign-in.
 - `doctor.py` — the health check; see its own checks before adding a new one.
 - `tests/` — 53 tests, no live credentials/network/browser use. Run `pytest` before and after any
   change here.

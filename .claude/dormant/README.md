@@ -1,41 +1,31 @@
 # Dormant material
 
 Files here are **not deleted, not advertised, and not auto-discovered** as Claude Code skills.
-They're moved out of `.claude/skills/` specifically so they stop appearing in skill discovery and
-stop being offered to an agent as something this beta currently supports.
+They're kept out of `.claude/skills/` specifically so they stay out of skill discovery.
 
-## Why these specific files
+## What's here now
 
-For `v0.1.0-beta.2`, X (Twitter) is not presented as a supported platform in this release (see the
-project's own README and ROADMAP for why). `auth/publish_x.py` and the underlying login machinery
-in `auth/platforms.py` / `auth/login_wizard.py` are untouched and still fully functional -- this is
-a documentation-and-discovery change, not a code removal. If X support is reinstated in a future
-release, moving these files back to `.claude/skills/` (and re-adding the references removed from
-`AGENTS.md`, `README.md`, etc.) is the whole job.
+X (Twitter) is a supported platform again -- see `.claude/skills/onboard-x/SKILL.md`,
+`.claude/skills/publish-x/SKILL.md`, and the X-specific rows in
+`.claude/skills/troubleshoot-publishing/SKILL.md` for the current, active, code-verified guidance.
+The X-specific material that used to live here (`onboard-x/SKILL.md`, `twitter.md`,
+`x-troubleshooting-symptoms.md`) has been folded into those active skills and removed from this
+directory, so there is only one version of any given piece of X guidance and it can't go stale
+against `auth/publish_x.py` unnoticed.
 
-- `onboard-x/SKILL.md` -- the X-specific setup-from-scratch flow (login through a verified post).
-- `twitter.md` -- X-specific publishing notes (character-limit weighting, alt-text handling, reply
-  demotion, etc.), written for an agent driving `auth/publish_x.py`.
+What remains dormant is the old **content-strategy playbooks**, which treat X as a co-equal
+default platform alongside Bluesky/LinkedIn/Instagram/YouTube as part of a specific posting
+rotation:
+
 - `multi-platform-post.md`, `post-feature.md`, `post-offthecuff.md`, `post-quick.md` -- content
-  strategy playbooks that treat X as a co-equal default platform alongside Bluesky/LinkedIn/
-  Instagram/YouTube. These were already unreferenced by any currently-discoverable skill before
-  this move (confirmed by search); moving them here doesn't break any live cross-reference from an
-  active skill. They may contain internal links to each other or to `twitter.md` that go stale now
-  that everything's in one flat directory -- that's expected and low-stakes, since nothing outside
-  this folder points to them.
-- `x-troubleshooting-symptoms.md` -- two X-specific rows ("Symptom D1" and "Symptom K") relocated
-  out of `.claude/skills/post-troubleshooting.md`, which otherwise stayed in place (see below).
-  Confirmed unreferenced elsewhere by number before moving.
+  strategy playbooks built around a particular multi-platform rotation strategy, not general X
+  mechanics. They're left dormant deliberately: reactivating them would mean either imposing that
+  specific strategy on every user or rebuilding them against the current simplified skill format,
+  neither of which is part of reinstating X support itself. Revisit these on their own merits if
+  that content strategy is wanted later.
 
 ## What was NOT moved
 
-- `post-troubleshooting.md` and `.claude/skills/bluesky.md` stayed in `.claude/skills/` because
-  they're actively referenced by `onboard-instagram` and `onboard-bluesky` respectively, for
-  content that has nothing to do with X. Their X-specific passages were relocated or edited in
-  place instead of moving the whole file -- `post-troubleshooting.md`'s X-only symptom rows moved
-  to `x-troubleshooting-symptoms.md` above, and its one mixed-platform row (character limits) had
-  only its X-specific clause trimmed, keeping the Bluesky/LinkedIn parts intact. `bluesky.md`'s one
-  X-comparison sentence was reworded rather than removed outright, since the sentence's actual
-  content (hashtag usage on Bluesky) is about Bluesky, not X.
-- `auth/publish_x.py`, `auth/platforms.py`, `auth/login_wizard.py` -- untouched by design; see
-  above.
+`auth/publish_x.py`, `auth/platforms.py`, `auth/login_wizard.py` -- untouched throughout; X was
+never removed from the code, only from the advertised/discoverable documentation surface, and that
+documentation gap is now closed.
