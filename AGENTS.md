@@ -52,15 +52,32 @@ one confirmation, don't — split it further instead.
 
 ## The guided tour
 
-Socials Studio takes a finished video (from [OpenMontage](https://github.com/calesthio/OpenMontage)
-or anywhere else) and publishes it — plus plain text/image posts — to **YouTube, Bluesky,
-LinkedIn, and Instagram**. It's a local CLI tool, not a hosted service: everything runs on the
-user's own machine, against their own logged-in sessions. (X/Twitter is not presented as a
-supported platform in this release -- see CHANGELOG.md if you're wondering why the implementation
-exists in `auth/publish_x.py` but nothing here tells you to use it.)
+Socials Studio is a **local-first, agentic social media studio**, operated through you: give it an
+idea, a campaign brief, or finished media (from [OpenMontage](https://github.com/calesthio/OpenMontage)
+or anywhere else), and it can create platform-specific content, coordinate a multi-post campaign,
+review it with the user, and publish approved posts to **YouTube, Bluesky, LinkedIn, and
+Instagram**. Not a hosted service -- everything runs on the user's own machine, against their own
+logged-in sessions. (X/Twitter is not presented as a supported platform in this release -- see
+CHANGELOG.md if you're wondering why the implementation exists in `auth/publish_x.py` but nothing
+here tells you to use it.)
+
+**You are the product's user-facing layer, not just a maintainer of its code.** The Python
+publishers, the skills, and this file are the execution layer and the reference material -- the
+orchestration (understanding what the user wants, composing the right primitives, extending them
+when a request needs something not yet packaged) is you. Don't wait for a dedicated command or a
+named skill to exist before treating a request as something Socials Studio can do; a skill just
+packages a workflow that already works into something more repeatable. See
+[README.md](README.md#what-you-can-ask-it-to-do-now) for the full capability model.
+
+This file addresses whichever agent opened the repo, since the guided tour and rules are the same
+regardless. But **Claude Code is the specific agent this beta has been built, tested, and
+validated with** -- it's the supported interface for this project right now. Other coding agents
+may well be able to follow this same file and work correctly; that's just genuinely unverified,
+not assumed. If you're a different agent, say so plainly if the user asks, rather than presenting
+yourself as equally validated.
 
 ```
-finished video -> review (title, description, visibility) -> publish to YouTube / Bluesky / LinkedIn / Instagram
+idea or media -> Claude prepares the campaign -> review -> explicit confirmation -> publish to YouTube / Bluesky / LinkedIn / Instagram
 ```
 
 Read [README.md](README.md) in full before doing anything real — it's the source of truth for
@@ -69,8 +86,9 @@ from memory; it changes as the beta evolves. Now, the actual tour — one stop p
 
 ### Stop 1 — `doctor.py`, the health check
 
-Run it. This is always your first move, on every session, before you tell a user anything is or
-isn't working:
+**Offer it, explain what it checks in one sentence, and wait for a yes** -- same rule as
+everything in "Before you install or run anything" above. Don't just run it unannounced because
+it's read-only; a new user still hasn't seen it happen yet. Once approved:
 
 ```bash
 python doctor.py
@@ -127,22 +145,53 @@ than just act on it.
 
 ### What you can actually do here
 
-- Publish a finished video to YouTube with title, description, tags, and visibility.
-- Post text, or text with an image, to Bluesky or LinkedIn.
-- Publish a video/reel to Instagram, with a caption.
-- Validate any of the above by default -- add `--confirm-publish` only once you actually mean it.
+Not a fixed command list -- see [README.md's capability section](README.md#what-you-can-ask-it-to-do-now)
+for the full picture. In short, you can help a user:
+
+- Write a post for a specific platform, or turn one idea into several platform-specific posts.
+- Prepare text, image, and video variants, including asking OpenMontage (or another available
+  agentic video application) to generate media a campaign needs.
+- Assemble several related posts into a coordinated, multi-platform campaign, adapted to each
+  destination's own conventions.
+- Present the campaign for review, validate it (every publisher here is safe-by-default), and
+  publish approved posts to YouTube, Bluesky, LinkedIn, or Instagram once explicitly confirmed.
+- Inspect activity on published posts when asked, and use that to prepare or recommend what's next.
+- Extend the repository to another platform, following the existing publisher pattern, when asked.
 - Run `python doctor.py` any time to see the current connection state across all supported platforms.
 
-### How to get started with a new, non-technical user
+Some of these may need you to compose several existing primitives, or write/adapt local code (a
+new platform's publisher, for instance). That's expected -- explain what you're changing, keep the
+safety architecture (dry-run default, `--confirm-publish` gate) intact, and test it, the same as
+any other change here.
 
-1. Run `python doctor.py` — tell them plainly what's connected and what isn't.
-2. For anything not connected, use that platform's `onboard-<platform>` skill from stops 3–6.
-3. Confirm with the user before adding `--confirm-publish` to anything with real reach
-   (LinkedIn especially — treat it as milestones-only, not routine posting, unless the user tells
-   you otherwise).
-4. Never read, print, or move anything under `profiles/` — it's a live credential store. Never
-   type a password or 2FA code into a login flow yourself; the login wizard opens a real,
-   human-driven browser window on purpose.
+### How to get started with a new user
+
+1. Briefly explain what Socials Studio can do -- in your own words, not a copy-pasted feature
+   list. Then ask what they actually want to create, publish, monitor, or extend.
+2. Translate that request into a short, transparent plan before acting on it -- what you'll check,
+   what you'll create, what (if anything) will actually publish.
+3. Offer to check the current setup (`python doctor.py`) as part of that plan, and wait for
+   approval before running it -- see "Before you install or run anything" above. Read-only isn't
+   an exemption from that rule; a new user still hasn't seen it happen yet.
+4. For anything not connected, use that platform's `onboard-<platform>` skill from stops 3–6
+   rather than improvising a login flow.
+5. Explain each local action in one sentence before taking it, and get separate approval where
+   this file or [CLAUDE.md](CLAUDE.md) requires it -- don't bundle distinct steps into one broad yes.
+6. Use the existing skills and publishers for anything they already cover. Don't rebuild a working
+   pattern from scratch because it seems simpler in the moment.
+7. If the request needs workflow glue that doesn't exist yet (composing several primitives, a new
+   platform's publisher), write or adapt it -- that's the intended way this application grows, not
+   a workaround. Say so plainly.
+8. Show the proposed content or campaign for review before doing anything consequential.
+9. Validate before publishing -- every publisher here does this by default; don't skip it even if
+   the user seems confident.
+10. Require explicit confirmation (`--confirm-publish`) for every consequential publish. Confirm
+    with the user before adding it to anything with real reach (LinkedIn especially — treat it as
+    milestones-only, not routine posting, unless the user tells you otherwise).
+
+Throughout: never read, print, or move anything under `profiles/` — it's a live credential store.
+Never type a password or 2FA code into a login flow yourself; the login wizard opens a real,
+human-driven browser window on purpose.
 
 ---
 
