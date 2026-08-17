@@ -25,6 +25,13 @@ release are one-way, public actions.
 7. Update `CHANGELOG.md`'s `(unreleased)` heading to the real release date.
 8. Update the version string in `README.md`'s beta line and `ROADMAP.md`'s `## Now` heading if
    they don't already match the version being tagged.
+9. Confirm `RELEASE_NOTES.md` names all five supported platforms (`YouTube`, `X`, `Bluesky`,
+   `LinkedIn`, `Instagram`) and contains neither `TikTok` nor any claim that this is a CLI-only
+   tool:
+   `grep -c "YouTube\|X (Twitter)\|Bluesky\|LinkedIn\|Instagram" RELEASE_NOTES.md` should report a
+   match for each platform, and
+   `grep -i "tiktok\|CLI-only\|CLI only\|command-line tool\b" RELEASE_NOTES.md` should print
+   nothing.
 
 ## Tagging and publishing
 
@@ -33,11 +40,13 @@ Run these only after the maintainer has reviewed and approved the diff:
 ```bash
 git tag -a v0.1.0-beta.2 -m "v0.1.0-beta.2"
 git push origin v0.1.0-beta.2
-gh release create v0.1.0-beta.2 --title "Socials Studio v0.1.0-beta.2" --notes-file CHANGELOG.md
+gh release create v0.1.0-beta.2 --title "Socials Studio v0.1.0-beta.2" --notes-file RELEASE_NOTES.md --prerelease
 ```
 
-(`gh release create` with `--notes-file` will include the whole changelog file; trim to just the
-new section first if that's not what you want in the release body.)
+`gh release create` now points `--notes-file` at `RELEASE_NOTES.md` -- the short, curated
+summary meant for a release body -- rather than the entire `CHANGELOG.md`, which stays linked
+from the release notes for anyone who wants the full detail. `--prerelease` matches how
+`v0.1.0-beta.1` is marked; keep it for every beta tag until this leaves beta.
 
 ## After publishing
 
