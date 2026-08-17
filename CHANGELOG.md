@@ -3,40 +3,23 @@
 This project doesn't yet follow a strict versioning scheme beyond `MAJOR.MINOR.PATCH-beta.N` --
 that will firm up once it leaves beta. Dates are when a release was tagged, not when work started.
 
-## Unreleased
+## v0.1.0-beta.2 (2026-08-17)
 
-### Corrected
+An agentic social media studio, operated through Claude Code -- not a fixed CLI toolkit. Give it
+an idea, a campaign brief, or finished media, and it creates platform-specific content, coordinates
+a multi-platform campaign, reviews it with you, and publishes approved posts to **YouTube, X
+(Twitter), Bluesky, LinkedIn, and Instagram**. Works with OpenMontage output specifically -- and
+with a finished video file from anywhere else, or with no video at all -- as an independent
+project, not an official integration.
 
-- **X (Twitter) support has been restored to the advertised and agent-discoverable surface.**
-  The v0.1.0-beta.2 decision to remove X from every public-facing doc and skill (below) is
-  reversed: `auth/publish_x.py` and its login machinery were never broken or removed, and X has
-  been in active use. X is now listed alongside YouTube, Bluesky, LinkedIn, and Instagram
-  everywhere a platform list appears (README, AGENTS.md, CLAUDE.md, the website, OPENMONTAGE.md,
-  ROADMAP.md, SECURITY.md, PRIVACY.md, issue templates), `auth/platforms.py` no longer marks it
-  `dormant`, and `.claude/skills/onboard-x/SKILL.md` and `.claude/skills/publish-x/SKILL.md` are
-  active, discoverable skills again (rebuilt against the current code and skill format, not
-  restored verbatim from the dormant copies). X publishes through a saved, human-created browser
-  session via Playwright, not the X API -- the same safe-by-default validation and
-  `--confirm-publish` gate apply as every other platform.
-- **`CLAUDE.md` and `AGENTS.md` no longer point at `README.md` as authoritative for what this
-  application can currently do.** Both files previously told an agent to treat the README as "the
-  source of truth" for supported platforms, which let a documentation-only decision (removing X
-  from the advertised surface) get mistaken for a capability that had actually been removed. Both
-  files now say to read the README for install guidance and declared release status, but to
-  determine actual capabilities from the current local code, configuration, and active skills --
-  and to report a discrepancy rather than suppress a working capability when the two disagree.
+### Supported platforms
 
-## v0.1.0-beta.2 (2026-08-12)
-
-### Removed from the advertised surface
-
-- **X (Twitter) is no longer presented as a supported platform.** It's out of every public-facing
-  doc, table, issue template, and agent-facing tour/quick-reference. This is a documentation and
-  discovery change, not a code removal: `auth/publish_x.py` and its login machinery in
-  `auth/platforms.py` / `auth/login_wizard.py` are untouched and still fully functional if invoked
-  explicitly by platform key. The X-specific onboarding skill and publishing notes were moved to
-  `.claude/dormant/` (not deleted) -- see `.claude/dormant/README.md` for the reasoning and how to
-  reinstate it in a future release.
+- **All five platforms are supported: YouTube, X (Twitter), Bluesky, LinkedIn, and Instagram.**
+  X publishes through a saved, human-created browser session via Playwright, the same as Bluesky,
+  LinkedIn, and Instagram -- not the X API. YouTube uses OAuth + the official Data API, the only
+  platform here that doesn't touch a browser at all, since Google blocks automated sign-in
+  outright. Every platform is discoverable through `login_wizard --list`, `doctor.py`, and an
+  active `onboard-<platform>`/`publish-<platform>` skill pair.
 
 ### Safety
 
@@ -59,6 +42,25 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
   `python -m auth.setup_youtube_oauth`. A token issued under the old scopes will fail on refresh
   with a "scope has changed" error rather than silently keep working.
 
+### The agentic application model
+
+- **Positioned as an agentic application operated through Claude Code, not a fixed set of CLI
+  commands.** Give it an idea, a campaign brief, or finished media; it can create
+  platform-specific content, coordinate a multi-post campaign, review it with you, publish
+  approved posts, inspect subsequent activity on request, and extend itself to another platform
+  when asked -- composing or adapting this repository's authentication, validation, and
+  publishing primitives rather than being limited to a fixed command list. `AGENTS.md` is a full
+  guided tour for an agent operating or contributing to this repo; `README.md`'s capability
+  section and `docs/index.html` describe the same model for a human reader.
+- **`openmontage-context` skill and OpenMontage positioning strengthened.** OpenMontage can create
+  the video; Socials Studio can request, understand, adapt, and publish the resulting media as
+  part of a wider campaign -- file-based compatibility, not a technical integration, with no
+  dependency on OpenMontage's code. The independent-project, not-affiliated-with-OpenMontage
+  disclaimer is preserved everywhere this positioning appears.
+- **TikTok removed entirely.** It was never implemented as a real publisher; references to it as
+  a planned or draft platform have been removed from docs, skills, and the roadmap rather than
+  left as an unfulfilled claim.
+
 ### Added
 
 - `PRIVACY.md` -- what's stored locally, where, for how long, and why. Linked from the README,
@@ -72,9 +74,25 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
 - `.claude/skills/openmontage-context/SKILL.md` (carried over from the prior beta.1 development
   cycle, listed here for completeness) -- grounds publish copy in an OpenMontage project's own
   script/brief/render-report artifacts.
+- `onboard-<platform>` and `publish-<platform>` skills for every supported platform (YouTube, X,
+  Bluesky, LinkedIn, Instagram), plus `platform-login` and `troubleshoot-publishing`, each
+  restructured to a consistent when-to-use / instructions / guardrails / known-failures format
+  and independently discoverable as a Claude Code skill (a directory containing `SKILL.md`, not a
+  flat file).
 
 ### Fixed
 
+- **X (Twitter) is supported.** X is listed alongside YouTube, Bluesky, LinkedIn, and Instagram
+  everywhere a platform list appears, `auth/platforms.py` carries no dormant flag for it, and
+  `onboard-x`/`publish-x` are active, discoverable skills. X publishes through a saved,
+  human-created browser session via Playwright, not the X API -- the same safe-by-default
+  validation and `--confirm-publish` gate apply as every other platform.
+- **Agent capability detection now follows the current local code, configuration, and active
+  skills, not `README.md`.** `CLAUDE.md` and `AGENTS.md` previously told an agent to treat the
+  README as "the source of truth" for supported platforms. Both now say to read the README for
+  install guidance and declared release status, but to determine actual capabilities from what's
+  actually in the repository -- and to report a discrepancy rather than suppress a working
+  capability when the two disagree.
 - `SECURITY.md` inaccurately claimed there were "no platform API keys or OAuth client
   credentials involved" and that only two files touch a browser or filesystem outside the project
   directory -- both were true when YouTube was the only publisher and false since Bluesky,
@@ -86,7 +104,9 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
   Bluesky, LinkedIn, and Instagram publishers were added. Corrected.
 - The website (`docs/index.html`) linked to the `v0.1.0-beta.1` release tag while `main` had
   diverged with substantially more functionality -- pointed at the repository's releases listing
-  instead until beta.2 is actually tagged, so it never sends a visitor to stale code.
+  instead, so it never sends a visitor to stale code. The website currently still links to the
+  releases listing while beta.2 remains untagged; `RELEASE_CHECKLIST.md` covers updating that link
+  to this release specifically once it's published.
 - Runtime dependency declarations had no upper bounds. Added major-version ceilings so a future
   breaking release upstream can't silently break this project's install.
 
