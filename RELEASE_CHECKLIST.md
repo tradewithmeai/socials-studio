@@ -25,11 +25,14 @@ release are one-way, public actions.
 7. Update `CHANGELOG.md`'s `(unreleased)` heading to the real release date.
 8. Update the version string in `README.md`'s beta line and `ROADMAP.md`'s `## Now` heading if
    they don't already match the version being tagged.
-9. Confirm `RELEASE_NOTES.md` names all five supported platforms (`YouTube`, `X`, `Bluesky`,
-   `LinkedIn`, `Instagram`) and contains neither `TikTok` nor any claim that this is a CLI-only
-   tool:
-   `grep -c "YouTube\|X (Twitter)\|Bluesky\|LinkedIn\|Instagram" RELEASE_NOTES.md` should report a
-   match for each platform, and
+9. Confirm `RELEASE_NOTES.md` names all five supported platforms individually and contains
+   neither `TikTok` nor any claim that this is a CLI-only tool:
+   ```bash
+   for platform in "YouTube" "X (Twitter)" "Bluesky" "LinkedIn" "Instagram"; do
+     grep -Fq "$platform" RELEASE_NOTES.md || echo "MISSING: $platform"
+   done
+   ```
+   should print nothing (no output means every platform was found), and
    `grep -i "tiktok\|CLI-only\|CLI only\|command-line tool\b" RELEASE_NOTES.md` should print
    nothing.
 

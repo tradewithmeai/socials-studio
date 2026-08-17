@@ -82,21 +82,17 @@ project, not an official integration.
 
 ### Fixed
 
-- **X (Twitter) is a supported platform.** Mid-beta.2 development briefly removed X from every
-  public-facing doc and skill while `auth/publish_x.py` and its login machinery stayed untouched
-  and in active use -- a documentation-only decision that had no basis in the code actually
-  working or not. That's reversed for this release: X is listed alongside YouTube, Bluesky,
-  LinkedIn, and Instagram everywhere a platform list appears, `auth/platforms.py` carries no
-  dormant flag for it, and `onboard-x`/`publish-x` are active, discoverable skills. X publishes
-  through a saved, human-created browser session via Playwright, not the X API -- the same
-  safe-by-default validation and `--confirm-publish` gate apply as every other platform.
-- **`CLAUDE.md` and `AGENTS.md` no longer point at `README.md` as authoritative for what this
-  application can currently do.** Both files previously told an agent to treat the README as "the
-  source of truth" for supported platforms, which is exactly what let the X removal above be
-  mistaken for a real capability change instead of a documentation lag. Both files now say to
-  read the README for install guidance and declared release status, but to determine actual
-  capabilities from the current local code, configuration, and active skills -- and to report a
-  discrepancy rather than suppress a working capability when the two disagree.
+- **X (Twitter) is supported.** X is listed alongside YouTube, Bluesky, LinkedIn, and Instagram
+  everywhere a platform list appears, `auth/platforms.py` carries no dormant flag for it, and
+  `onboard-x`/`publish-x` are active, discoverable skills. X publishes through a saved,
+  human-created browser session via Playwright, not the X API -- the same safe-by-default
+  validation and `--confirm-publish` gate apply as every other platform.
+- **Agent capability detection now follows the current local code, configuration, and active
+  skills, not `README.md`.** `CLAUDE.md` and `AGENTS.md` previously told an agent to treat the
+  README as "the source of truth" for supported platforms. Both now say to read the README for
+  install guidance and declared release status, but to determine actual capabilities from what's
+  actually in the repository -- and to report a discrepancy rather than suppress a working
+  capability when the two disagree.
 - `SECURITY.md` inaccurately claimed there were "no platform API keys or OAuth client
   credentials involved" and that only two files touch a browser or filesystem outside the project
   directory -- both were true when YouTube was the only publisher and false since Bluesky,
@@ -108,8 +104,9 @@ project, not an official integration.
   Bluesky, LinkedIn, and Instagram publishers were added. Corrected.
 - The website (`docs/index.html`) linked to the `v0.1.0-beta.1` release tag while `main` had
   diverged with substantially more functionality -- pointed at the repository's releases listing
-  instead, so it never sent a visitor to stale code while beta.2 was untagged. Now that beta.2 is
-  tagged, the link points at this release directly (see `RELEASE_CHECKLIST.md`).
+  instead, so it never sends a visitor to stale code. The website currently still links to the
+  releases listing while beta.2 remains untagged; `RELEASE_CHECKLIST.md` covers updating that link
+  to this release specifically once it's published.
 - Runtime dependency declarations had no upper bounds. Added major-version ceilings so a future
   breaking release upstream can't silently break this project's install.
 

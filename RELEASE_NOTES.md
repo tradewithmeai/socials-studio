@@ -13,7 +13,8 @@ you, and publishes approved posts once you explicitly confirm.
 - YouTube publishes through the official Data API via OAuth -- no browser automation at all,
   since Google blocks automated sign-in outright.
 - X, Bluesky, LinkedIn, and Instagram each publish through a saved, human-created browser session
-  -- you log in yourself, once, in a real Chrome window; Claude never touches credentials.
+  -- you complete each login yourself in a real Chrome window. Socials Studio saves and reuses
+  the resulting local browser session; it does not ask Claude to enter your passwords.
 
 ## What it does
 
@@ -42,8 +43,12 @@ risk.
 
 ## License and testing
 
-Open source under the [MIT License](LICENSE). This beta has been developed and tested with
-Claude Code; other coding agents, operating systems, and configurations haven't been validated
-yet -- reports from real use are welcome either way, pass or fail.
+Open source under the
+[MIT License](https://github.com/tradewithmeai/socials-studio/blob/v0.1.0-beta.2/LICENSE). This
+beta has been developed and tested with Claude Code; other coding agents, operating systems, and
+configurations haven't been validated yet -- reports from real use are welcome either way, pass
+or fail.
 
-See [CHANGELOG.md](CHANGELOG.md) for the complete, detailed change history.
+See
+[CHANGELOG.md](https://github.com/tradewithmeai/socials-studio/blob/v0.1.0-beta.2/CHANGELOG.md)
+for the complete, detailed change history.
