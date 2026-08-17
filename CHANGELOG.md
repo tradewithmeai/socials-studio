@@ -3,7 +3,7 @@
 This project doesn't yet follow a strict versioning scheme beyond `MAJOR.MINOR.PATCH-beta.N` --
 that will firm up once it leaves beta. Dates are when a release was tagged, not when work started.
 
-## v0.1.0-beta.2 (unreleased)
+## v0.1.0-beta.2 (2026-08-17)
 
 An agentic social media studio, operated through Claude Code -- not a fixed CLI toolkit. Give it
 an idea, a campaign brief, or finished media, and it creates platform-specific content, coordinates
