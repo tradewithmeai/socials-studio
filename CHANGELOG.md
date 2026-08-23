@@ -5,6 +5,33 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
 
 ## Unreleased
 
+### Added
+
+- **Guided installers for Windows, macOS, and Linux** (`installer/`), aimed at someone with a
+  Claude subscription but no GitHub, Git, or Python experience. `Socials-Studio-Setup.exe`
+  (Windows), plus `.zip`/`.tar.gz` installer bundles for macOS/Linux, are built by CI (see
+  `.github/workflows/build-installers.yml`) with SHA256 checksums. Each installer copies the
+  plain repository source onto disk -- it is not compiled or frozen into an opaque binary, so
+  Claude Code retains full access to every skill, Markdown file, and Python module -- then runs
+  `installer/bootstrap.py` to set up a Python virtual environment and install dependencies. It
+  checks for Claude Code and Google Chrome without installing either silently: on macOS/Linux it
+  offers to run Anthropic's own official Claude Code installer after explicit confirmation; on
+  Windows it links to the download page instead. It never logs into a platform, never publishes
+  anything, and never touches an existing `profiles/` directory, so a reinstall or upgrade
+  preserves saved logins and OAuth tokens. A first-run marker (`.first-run-pending`) tells Claude
+  Code to welcome the user and offer guided platform setup on the very first launch only -- see
+  the note in `CLAUDE.md`.
+- Focused unit tests for the installer's setup logic (`tests/test_installer_bootstrap.py`) --
+  fully mocked, no real virtual environment, network call, or `profiles/` access.
+- README and the website got a plain-language pass: the two supported installation routes (ask
+  an existing Claude Code install, or use the guided installer) are now explained above the fold,
+  ahead of the command-line instructions, which remain available for contributors.
+
+**Still needs human testing before it's genuinely done:** the Windows installer has been built
+and reviewed but not run end-to-end on a real Windows machine by a second person; the macOS and
+Linux installers have not been run on real hardware at all. None of this is claimed as verified
+in the README or website -- see their Testing status sections.
+
 ### Fixed
 
 - **Onboarding could fail on a non-English machine.** `auth/platforms.py`'s `logged_in_selector`

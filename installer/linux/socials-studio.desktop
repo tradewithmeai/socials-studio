@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Socials Studio
+Comment=Agentic social publishing, operated through Claude Code
+Exec=__EXEC_PATH__
+Icon=utilities-terminal
+Terminal=true
+Categories=Utility;Development;

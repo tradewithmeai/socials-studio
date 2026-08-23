@@ -22,6 +22,14 @@ These are the only capabilities that are actually missing today, not just unpack
   publication that continues without you reviewing and authorising it through that gate. See
   [README.md](README.md#what-isnt-available-yet).
 
+## In progress: guided installers (v0.1.0-beta.3)
+
+Windows, macOS, and Linux installers so a user with a Claude subscription but no GitHub, Git, or
+Python experience can get set up -- see `installer/` and the README's [Get started](README.md#get-started)
+section. The Windows installer is built and reviewed but not yet run end-to-end by a second
+person; macOS and Linux are built by CI but **not yet verified on real hardware** -- see the
+README's Testing status before relying on either.
+
 ## Next, roughly in order
 
 - Package proven agent-led workflows (see the two gaps above, once a working pattern exists) into

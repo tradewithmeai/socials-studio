@@ -1,0 +1,114 @@
+name: Build installers
+
+# Builds the three installer artifacts (Windows .exe, macOS .zip, Linux
+# .tar.gz) plus a SHA256SUMS file. Runs on a manual trigger or a
+# `installer-v*` tag push -- it never runs on every push, since this is a
+# packaging step, not part of normal CI (see .github/workflows/ci.yml for
+# that). It never touches profiles/, never logs into a platform, and never
+# publishes a GitHub release by itself -- that's still a manual step (see
+# RELEASE_CHECKLIST.md), so a maintainer reviews the artifacts first.
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - "installer-v*"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage repo payload (excluding profiles/, .git, dev artifacts)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path payload | Out-Null
+          $exclude = @('.git', 'profiles', '.venv', '__pycache__', '.pytest_cache', 'dist', 'payload', 'payload-python', 'exported-docs')
+          Get-ChildItem -Force -Path . | Where-Object { $exclude -notcontains $_.Name } | ForEach-Object {
+            Copy-Item -Recurse -Force $_.FullName -Destination "payload/$($_.Name)"
+          }
+          New-Item -ItemType Directory -Force -Path payload/profiles | Out-Null
+
+      - name: Download embeddable Python for the bootstrap step
+        shell: pwsh
+        run: |
+          $pyVersion = "3.12.7"
+          $url = "https://www.python.org/ftp/python/$pyVersion/python-$pyVersion-embed-amd64.zip"
+          Invoke-WebRequest -Uri $url -OutFile python-embed.zip
+          New-Item -ItemType Directory -Force -Path payload-python | Out-Null
+          Expand-Archive -Path python-embed.zip -DestinationPath payload-python -Force
+          # The embeddable distribution needs pip enabled and stdlib importable
+          # to run bootstrap.py's `venv` module -- uncomment the ._pth import line.
+          $pth = Get-ChildItem payload-python -Filter "python*._pth" | Select-Object -First 1
+          (Get-Content $pth.FullName) -replace '^#import site', 'import site' | Set-Content $pth.FullName
+          Invoke-WebRequest -Uri "https://bootstrap.pypa.io/get-pip.py" -OutFile get-pip.py
+          & "payload-python\python.exe" get-pip.py --no-warn-script-location
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build Socials-Studio-Setup.exe
+        shell: cmd
+        run: |
+          "C:\Program Files (x86)\Inno Setup 6\iscc.exe" installer\windows\setup.iss
+
+      - name: Checksum
+        shell: pwsh
+        run: |
+          $hash = Get-FileHash -Algorithm SHA256 dist\Socials-Studio-Setup.exe
+          "$($hash.Hash.ToLower())  Socials-Studio-Setup.exe" | Out-File -Encoding ascii dist\Socials-Studio-Setup.exe.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            dist/Socials-Studio-Setup.exe
+            dist/Socials-Studio-Setup.exe.sha256
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package source + installer scripts
+        run: |
+          mkdir -p dist
+          zip -r dist/Socials-Studio-macOS.zip . \
+            -x ".git/*" -x "profiles/*" -x ".venv/*" -x "__pycache__/*" \
+            -x ".pytest_cache/*" -x "dist/*" -x "exported-docs/*"
+
+      - name: Checksum
+        run: |
+          shasum -a 256 dist/Socials-Studio-macOS.zip > dist/Socials-Studio-macOS.zip.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-installer
+          path: |
+            dist/Socials-Studio-macOS.zip
+            dist/Socials-Studio-macOS.zip.sha256
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package source + installer scripts
+        run: |
+          mkdir -p dist
+          tar --exclude='.git' --exclude='profiles' --exclude='.venv' \
+              --exclude='__pycache__' --exclude='.pytest_cache' \
+              --exclude='dist' --exclude='exported-docs' \
+              -czf dist/Socials-Studio-Linux.tar.gz .
+
+      - name: Checksum
+        run: |
+          sha256sum dist/Socials-Studio-Linux.tar.gz > dist/Socials-Studio-Linux.tar.gz.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-installer
+          path: |
+            dist/Socials-Studio-Linux.tar.gz
+            dist/Socials-Studio-Linux.tar.gz.sha256

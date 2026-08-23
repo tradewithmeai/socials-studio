@@ -1,0 +1,5 @@
+# Shell scripts and launchers must always be LF, regardless of a contributor's
+# autocrlf setting -- a CRLF-corrupted shebang line breaks these on Linux/macOS.
+installer/**/*.sh text eol=lf
+installer/macos/*.command text eol=lf
+installer/**/*.desktop text eol=lf

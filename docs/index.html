@@ -206,23 +206,23 @@
 <header class="hero">
   <div class="wrap">
     <p class="kicker">Socials Studio</p>
-    <h1>An agentic social media studio, operated through Claude Code</h1>
-    <h2 class="tagline"><a href="https://github.com/calesthio/OpenMontage">OpenMontage</a> can create the video. Socials Studio can request, understand, adapt and publish the resulting media as part of a wider campaign.</h2>
+    <h1>Turn an idea, image, video, or OpenMontage project into a real social media campaign</h1>
+    <h2 class="tagline">Tell it what you want. Claude Code writes platform-specific posts for YouTube, X, Bluesky, LinkedIn, and Instagram, then publishes once you've reviewed and confirmed it.</h2>
     <p class="lede" style="font-size:0.92rem;">
-      Independent community project — not affiliated with, maintained by, or endorsed by
-      OpenMontage.
+      Independent community project, not affiliated with, maintained by, or endorsed by
+      <a href="https://github.com/calesthio/OpenMontage">OpenMontage</a> — it works just as well
+      with a rendered OpenMontage project as with any other video, image, or idea.
     </p>
     <p class="lede">
-      Give it an idea, a campaign brief, or finished media. It creates platform-specific content,
-      coordinates multiple posts into a campaign, reviews and validates everything with you, and
-      publishes approved posts to YouTube, X, Bluesky, LinkedIn and Instagram — all from one local,
-      extensible workspace.
+      Text, image, and video posts. Different copy written for each platform, not one caption
+      pasted five times. A single post, or a whole coordinated campaign. Nothing goes out until
+      you've seen it and said yes.
     </p>
     <p class="lede" style="font-size:0.92rem; margin-top:-12px;">
-      Public beta, built and tested with <strong>Claude Code</strong> — the only coding
-      agent this has been validated with so far, and the supported way to operate it. The
-      underlying Python publishers also work driven by hand, without any agent at all — see
-      the CLI reference below.
+      <strong>Claude Code</strong> supplies the intelligence: it writes the copy, adapts it per
+      platform, and drives the publishers — Socials Studio is the local, open-source toolkit it
+      uses to do that safely. Already have Claude Code? Just ask it to set this up. New to all
+      this? A guided installer gets you there without touching GitHub, Git, or Python yourself.
     </p>
     <p class="lede" style="font-size:0.85rem; margin-top:-12px;">
       Socials Studio's own data stays local to your machine — Claude Code is a separate service
@@ -244,20 +244,38 @@
 <section>
   <div class="wrap">
     <h3>Get started</h3>
-    <p style="font-size:0.92rem;">
-      Requires <a href="https://claude.com/claude-code">Claude Code</a> already installed and
-      authenticated. Claude will explain each setup step (virtual environment, dependencies,
-      health check) and wait for your approval before running it — nothing happens silently.
+    <p>
+      You need a <a href="https://claude.ai">Claude subscription</a> either way — Claude Code is
+      what actually writes and publishes your posts. Two ways in, both ending at the same place: a
+      working Claude Code session, open in this project.
     </p>
-    <p>Clone the repo and open Claude Code in it:</p>
-    <pre style="background:var(--code-bg); border-radius:10px; padding:18px 20px; overflow-x:auto; font-size:0.92rem;"><code>git clone https://github.com/tradewithmeai/socials-studio.git
-cd socials-studio
-claude</code></pre>
+    <p><strong>Already use Claude Code?</strong> Open a terminal and just ask it:</p>
+    <blockquote style="border-left:3px solid var(--accent); margin:0 0 16px; padding:4px 0 4px 16px; color:var(--text);">
+      "Clone <code>https://github.com/tradewithmeai/socials-studio</code> and set it up for me."
+    </blockquote>
     <p style="font-size:0.92rem;">
-      That gets the application running, not a platform ready to publish to. Before Claude can
-      post anywhere, you'll follow its onboarding instructions once per platform — a real,
-      human-driven login (or, for YouTube, a one-time OAuth setup) that Claude walks you through
-      step by step. It only asks for this the first time; after that, publishing just works.
+      Claude will explain each setup step (a Python virtual environment, dependencies, a health
+      check) and wait for your yes each time — nothing happens silently.
+    </p>
+    <p><strong>New to all this?</strong> Download the installer for your system and run it — no
+      GitHub account, no Git, no Python knowledge needed:</p>
+    <ul style="color: var(--text-muted);">
+      <li><strong>Windows:</strong> <code>Socials-Studio-Setup.exe</code></li>
+      <li><strong>macOS:</strong> <code>Socials-Studio-macOS.zip</code> — unzip, run <code>install.sh</code></li>
+      <li><strong>Linux:</strong> <code>Socials-Studio-Linux.tar.gz</code> — extract, run <code>install.sh</code></li>
+    </ul>
+    <p style="font-size:0.92rem;">
+      Grab the latest from the
+      <a href="https://github.com/tradewithmeai/socials-studio/releases">Releases page</a>. The
+      installer sets up Python for you, checks for Chrome and Claude Code, and finishes by opening
+      a launcher — the first time you run it, Claude introduces itself and offers to walk you
+      through connecting your first platform. It never logs into a social platform or publishes
+      anything during setup. <em>macOS and Linux installers haven't been verified on real hardware
+      yet — see the README's testing status before relying on them.</em>
+    </p>
+    <p style="font-size:0.92rem;">
+      Either route ends with a real, human-driven login per platform (or a one-time OAuth step for
+      YouTube) that Claude walks you through — only asked once, the first time you connect each one.
     </p>
     <p>Then just say what you want, in plain language. For example:</p>
     <ul style="color: var(--text-muted);">
