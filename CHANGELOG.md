@@ -3,6 +3,19 @@
 This project doesn't yet follow a strict versioning scheme beyond `MAJOR.MINOR.PATCH-beta.N` --
 that will firm up once it leaves beta. Dates are when a release was tagged, not when work started.
 
+## Unreleased
+
+### Fixed
+
+- **Onboarding could fail on a non-English machine.** `auth/platforms.py`'s `logged_in_selector`
+  values are English strings (e.g. `svg[aria-label="Home"]`), so on a machine with the OS/Chrome
+  display language set to something else, a real, successful login could still fail verification
+  because the platform rendered that control's accessible name in the local language instead.
+  `auth/login_wizard.py` now forces English (`--lang=en-US` / `locale="en-US"`) inside the
+  isolated `profiles/<platform>/` Chrome profile it already creates for each platform -- for both
+  the manual login window and the Playwright verification step -- without touching the user's own
+  Chrome profile or system language.
+
 ## v0.1.0-beta.2 (2026-08-17)
 
 An agentic social media studio, operated through Claude Code -- not a fixed CLI toolkit. Give it

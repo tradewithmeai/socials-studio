@@ -22,6 +22,10 @@ Supported platform keys: `instagram`, `bluesky`, `linkedin`, `x` (list with
 log in by hand, then close that window completely when done. The wizard then verifies the session
 read-only via Playwright, without touching a login form.
 
+That window opens in English regardless of the machine's OS/Chrome language -- the isolated
+`profiles/<platform>/` profile is forced to `en-US` so `auth/platforms.py`'s English-language
+selectors keep matching. This never changes the user's normal Chrome profile or system language.
+
 ## Guardrails
 
 - Never attempt login from inside automation, and never fill in credentials or 2FA programmatically

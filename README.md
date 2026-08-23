@@ -238,8 +238,12 @@ python -m auth.login_wizard --platform bluesky
 ```
 
 The session is saved to `profiles/<platform>/` on your machine only. It's gitignored, never
-transmitted anywhere, and never read by anything except your own later publish commands. List
-supported platform keys anytime:
+transmitted anywhere, and never read by anything except your own later publish commands.
+
+That window opens in English regardless of your OS or normal Chrome language -- this keeps the
+platform-detection selectors working reliably, since they look for English UI text. It only
+affects this isolated `profiles/<platform>/` Chrome profile; your regular Chrome profile and
+system language are untouched. List supported platform keys anytime:
 
 ```bash
 python -m auth.login_wizard --list
