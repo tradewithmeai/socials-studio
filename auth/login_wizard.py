@@ -33,6 +33,23 @@ must never be committed.
 YouTube is NOT here -- it uses OAuth + the official Data API instead (see
 auth/setup_youtube_oauth.py), for reasons unrelated to this login-blocking
 issue: Google blocks browser automation entirely.
+
+## Why the isolated Chrome profile is forced to English
+
+Confirmed live: on a machine with Portuguese (pt-BR) as the OS/Chrome display
+language, session verification failed even after a real, successful login --
+`logged_in_selector` values like `svg[aria-label="Home"]` never matched,
+because the platform rendered that control's accessible name in Portuguese,
+not English. The same risk applies to every browser platform here, since
+every `logged_in_selector` in `auth/platforms.py` is an English string.
+
+The fix is to force English (`--lang=en-US` / `locale="en-US"`) only inside
+the isolated `profiles/<platform>/` Chrome profile this module creates and
+drives -- both for the plain, human-driven login window and for the
+Playwright verification step afterward. This does **not** touch the user's
+normal, everyday Chrome profile or their system/device language in any way;
+it's scoped entirely to the separate, dedicated profile directory this
+module already isolates every platform's session into.
 """
 
 from __future__ import annotations
@@ -51,6 +68,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PROFILES_DIR = REPO_ROOT / "profiles"
 
 VERIFY_TIMEOUT_MS = 30_000
+
+# Forces the isolated profiles/<platform>/ Chrome window to English, so
+# selectors in auth/platforms.py (e.g. `svg[aria-label="Home"]`) keep
+# matching regardless of the OS/Chrome display language on the machine this
+# runs on. Scoped to this isolated profile only -- the user's normal Chrome
+# profile and system language are never touched.
+FORCE_ENGLISH_ARGS = ["--lang=en-US"]
+FORCE_ENGLISH_LOCALE = "en-US"
 
 
 def _manual_login_step(platform_key: str, profile_dir: Path) -> None:
@@ -73,6 +98,7 @@ def _manual_login_step(platform_key: str, profile_dir: Path) -> None:
             str(chrome_path),
             f"--user-data-dir={profile_dir}",
             "--no-first-run",
+            *FORCE_ENGLISH_ARGS,
             platform.login_url,
         ]
     )
@@ -98,6 +124,8 @@ def _verify_session(platform_key: str, profile_dir: Path) -> bool:
             user_data_dir=str(profile_dir),
             channel="chrome",
             headless=False,
+            locale=FORCE_ENGLISH_LOCALE,
+            args=FORCE_ENGLISH_ARGS,
         )
         try:
             page = context.pages[0] if context.pages else context.new_page()
