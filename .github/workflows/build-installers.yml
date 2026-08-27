@@ -150,6 +150,7 @@ jobs:
           INSTALL_DIR="$RUNNER_TEMP/ss-install"
           mkdir -p "$WORKDIR"
           unzip -q dist/Socials-Studio-macOS.zip -d "$WORKDIR"
+          chmod +x "$WORKDIR/installer/macos/install.sh" "$WORKDIR/installer/macos/SocialsStudio.command"
           "$WORKDIR/installer/macos/install.sh" "$INSTALL_DIR"
 
           fail=0
@@ -217,6 +218,7 @@ jobs:
           INSTALL_DIR="$RUNNER_TEMP/ss-install"
           mkdir -p "$WORKDIR"
           tar -xzf dist/Socials-Studio-Linux.tar.gz -C "$WORKDIR"
+          chmod +x "$WORKDIR/installer/linux/install.sh" "$WORKDIR/installer/linux/socials-studio-launch.sh"
           "$WORKDIR/installer/linux/install.sh" "$INSTALL_DIR"
 
           fail=0
