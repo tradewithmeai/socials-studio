@@ -109,6 +109,13 @@ def maybe_offer_claude_install(
     without explicit confirmation, and never on Windows (see
     official_claude_install_command). This project does not redistribute
     Claude Code -- it only offers to invoke Anthropic's own installer.
+
+    The default confirm function treats a closed/absent stdin (EOFError) as
+    "no" rather than crashing -- this isn't just a CI concern: any
+    non-interactive invocation (a script, a scheduled task, a piped
+    installer run) has no terminal to read a real answer from, and this
+    setup step must degrade gracefully there, not blow up the rest of the
+    setup report.
     """
     if claude_step.ok:
         return
@@ -119,7 +126,14 @@ def maybe_offer_claude_install(
             "qualifying Claude account, then run this setup again."
         )
         return
-    ask = confirm or (lambda prompt: input(prompt).strip().lower() == "y")
+
+    def _default_confirm(prompt: str) -> bool:
+        try:
+            return input(prompt).strip().lower() == "y"
+        except EOFError:
+            return False
+
+    ask = confirm or _default_confirm
     if ask("Install Claude Code now using Anthropic's official installer? [y/N] "):
         run(command)
     else:

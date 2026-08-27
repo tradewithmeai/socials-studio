@@ -208,6 +208,22 @@ def test_maybe_offer_claude_install_never_runs_on_windows():
     run.assert_not_called()
 
 
+def test_maybe_offer_claude_install_default_confirm_handles_closed_stdin():
+    """Regression test: a non-interactive invocation (no terminal attached --
+    caught live by the Linux/macOS CI smoke tests, which run non-interactively)
+    must not crash with EOFError when no explicit `confirm` callable is given.
+    The default confirm function should treat EOF as "no" and let setup
+    finish reporting its other steps."""
+    step = bootstrap.SetupStep("Claude Code CLI", False, "missing")
+    run = MagicMock()
+
+    with patch("builtins.input", side_effect=EOFError):
+        # Must not raise.
+        bootstrap.maybe_offer_claude_install(step, "darwin", run=run)
+
+    run.assert_not_called()
+
+
 def test_python_version_supported():
     assert bootstrap.python_version_supported((3, 10)) is True
     assert bootstrap.python_version_supported((3, 12)) is True
