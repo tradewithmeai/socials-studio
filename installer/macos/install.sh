@@ -59,11 +59,22 @@ if [ -z "$PYTHON_BIN" ]; then
 fi
 
 echo "Using $(command -v "$PYTHON_BIN") to set up Socials Studio's environment..."
-"$PYTHON_BIN" "$DEST/installer/bootstrap.py" --project-dir "$DEST"
+# bootstrap.py exits non-zero when Claude Code isn't found yet -- that's a
+# real, expected first-run state (the user hasn't installed it yet), not a
+# fatal installer error. Don't let `set -e` abort the rest of this script
+# (installing the launcher below) just because of that.
+bootstrap_status=0
+"$PYTHON_BIN" "$DEST/installer/bootstrap.py" --project-dir "$DEST" || bootstrap_status=$?
 
 cp "$SCRIPT_DIR/SocialsStudio.command" "$DEST/SocialsStudio.command"
 chmod +x "$DEST/SocialsStudio.command"
 
 echo ""
-echo "Done. Double-click $DEST/SocialsStudio.command to launch Socials Studio,"
-echo "or drag it to your Dock/Applications folder first."
+if [ "$bootstrap_status" -ne 0 ]; then
+    echo "Setup finished with an action still needed (see above, usually installing"
+    echo "Claude Code). Once that's done, double-click $DEST/SocialsStudio.command"
+    echo "to launch Socials Studio."
+else
+    echo "Done. Double-click $DEST/SocialsStudio.command to launch Socials Studio,"
+    echo "or drag it to your Dock/Applications folder first."
+fi

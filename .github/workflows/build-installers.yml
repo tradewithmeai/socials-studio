@@ -151,10 +151,9 @@ jobs:
           mkdir -p "$WORKDIR"
           unzip -q dist/Socials-Studio-macOS.zip -d "$WORKDIR"
           chmod +x "$WORKDIR/installer/macos/install.sh" "$WORKDIR/installer/macos/SocialsStudio.command"
-          # bootstrap.py correctly reports a non-zero exit when Claude Code
-          # isn't on PATH -- expected here, since CI runners genuinely don't
-          # have it installed. That's not what this smoke test checks; the
-          # file-existence checks below are.
+          # install.sh itself tolerates bootstrap.py exiting non-zero (Claude
+          # Code missing is a normal first-run state, not a fatal error) --
+          # the `|| true` here is just defense in depth.
           "$WORKDIR/installer/macos/install.sh" "$INSTALL_DIR" || true
 
           fail=0
@@ -178,10 +177,9 @@ jobs:
           mkdir -p "$(dirname "$PROFILE_FILE")"
           echo -n '{"cookies": "fake-not-real-session-data"}' > "$PROFILE_FILE"
 
-          # bootstrap.py correctly reports a non-zero exit when Claude Code
-          # isn't on PATH -- expected here, since CI runners genuinely don't
-          # have it installed. That's not what this smoke test checks; the
-          # file-existence checks below are.
+          # install.sh itself tolerates bootstrap.py exiting non-zero (Claude
+          # Code missing is a normal first-run state, not a fatal error) --
+          # the `|| true` here is just defense in depth.
           "$WORKDIR/installer/macos/install.sh" "$INSTALL_DIR" || true
 
           if ! diff -q <(echo -n '{"cookies": "fake-not-real-session-data"}') "$PROFILE_FILE" >/dev/null; then
@@ -227,9 +225,8 @@ jobs:
           mkdir -p "$WORKDIR"
           tar -xzf dist/Socials-Studio-Linux.tar.gz -C "$WORKDIR"
           chmod +x "$WORKDIR/installer/linux/install.sh" "$WORKDIR/installer/linux/socials-studio-launch.sh"
-          # See the macOS job's comment on the equivalent line: a non-zero
-          # exit here (Claude Code missing) is expected on a CI runner and
-          # not what this smoke test checks.
+          # See the macOS job's comment on the equivalent line -- install.sh
+          # already tolerates this internally; `|| true` is defense in depth.
           "$WORKDIR/installer/linux/install.sh" "$INSTALL_DIR" || true
 
           fail=0
@@ -256,9 +253,8 @@ jobs:
           mkdir -p "$(dirname "$PROFILE_FILE")"
           echo -n '{"cookies": "fake-not-real-session-data"}' > "$PROFILE_FILE"
 
-          # See the macOS job's comment on the equivalent line: a non-zero
-          # exit here (Claude Code missing) is expected on a CI runner and
-          # not what this smoke test checks.
+          # See the macOS job's comment on the equivalent line -- install.sh
+          # already tolerates this internally; `|| true` is defense in depth.
           "$WORKDIR/installer/linux/install.sh" "$INSTALL_DIR" || true
 
           if ! diff -q <(echo -n '{"cookies": "fake-not-real-session-data"}') "$PROFILE_FILE" >/dev/null; then

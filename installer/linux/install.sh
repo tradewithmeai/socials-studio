@@ -62,7 +62,12 @@ if [ -z "$PYTHON_BIN" ]; then
 fi
 
 echo "Using $(command -v "$PYTHON_BIN") to set up Socials Studio's environment..."
-"$PYTHON_BIN" "$DEST/installer/bootstrap.py" --project-dir "$DEST"
+# bootstrap.py exits non-zero when Claude Code isn't found yet -- that's a
+# real, expected first-run state (the user hasn't installed it yet), not a
+# fatal installer error. Don't let `set -e` abort the rest of this script
+# (installing the launcher/desktop entry below) just because of that.
+bootstrap_status=0
+"$PYTHON_BIN" "$DEST/installer/bootstrap.py" --project-dir "$DEST" || bootstrap_status=$?
 
 cp "$SCRIPT_DIR/socials-studio-launch.sh" "$DEST/socials-studio-launch.sh"
 chmod +x "$DEST/socials-studio-launch.sh"
@@ -73,5 +78,11 @@ sed "s|__EXEC_PATH__|$DEST/socials-studio-launch.sh|" \
     "$SCRIPT_DIR/socials-studio.desktop" > "$DESKTOP_DIR/socials-studio.desktop"
 
 echo ""
-echo "Done. Run $DEST/socials-studio-launch.sh, or look for \"Socials Studio\""
-echo "in your applications menu."
+if [ "$bootstrap_status" -ne 0 ]; then
+    echo "Setup finished with an action still needed (see above, usually installing"
+    echo "Claude Code). Once that's done, run $DEST/socials-studio-launch.sh, or"
+    echo "look for \"Socials Studio\" in your applications menu."
+else
+    echo "Done. Run $DEST/socials-studio-launch.sh, or look for \"Socials Studio\""
+    echo "in your applications menu."
+fi
