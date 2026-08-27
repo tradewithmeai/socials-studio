@@ -6,8 +6,15 @@
 # installer/bootstrap.py to prepare a Python virtual environment. Never logs
 # into a platform, never publishes anything, never collects a credential.
 #
-# Has NOT been run on a real Linux machine as part of this change -- see the
-# PR notes for what still needs human testing before this ships as verified.
+# CI smoke-tests this script on ubuntu-24.04 (see
+# .github/workflows/build-installers.yml) -- silent install, verify expected
+# files exist, verify a reinstall doesn't touch profiles/. A separate,
+# independent manual test on real Ubuntu 24.04 x64 hardware has also
+# confirmed source install, venv creation, dependency install, the
+# launcher/desktop entry, and byte-for-byte profiles/ preservation on
+# reinstall -- see README.md's Testing status section for the exact,
+# current label. Real browser login / publishing has not been tested
+# through this package on any Linux machine yet.
 #
 # Usage (once downloaded/extracted):
 #   ./install.sh [destination-directory]
@@ -27,19 +34,26 @@ mkdir -p "$DEST"
 rsync -a --exclude 'profiles/' --exclude '.git/' "$REPO_ROOT/" "$DEST/"
 mkdir -p "$DEST/profiles"
 
+# Find a python3 that is ACTUALLY 3.10+, not just named as if it might be --
+# a distro's plain `python3` can resolve to something older, and trusting
+# the name alone would silently accept it.
 PYTHON_BIN=""
 for candidate in python3.13 python3.12 python3.11 python3.10 python3; do
     if command -v "$candidate" >/dev/null 2>&1; then
-        PYTHON_BIN="$candidate"
-        break
+        if "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' 2>/dev/null; then
+            PYTHON_BIN="$candidate"
+            break
+        fi
     fi
 done
 
 if [ -z "$PYTHON_BIN" ]; then
     echo ""
-    echo "Python 3.10+ was not found."
-    echo "Install it with your distribution's package manager, e.g.:"
-    echo "  Debian/Ubuntu:  sudo apt install python3 python3-venv"
+    echo "No Python 3.10+ was found (checked python3.10 through python3.13, and"
+    echo "plain python3 -- rejecting anything older than 3.10)."
+    echo "This installer does not set up Python for you on Linux -- install one"
+    echo "yourself with your distribution's package manager, e.g.:"
+    echo "  Debian/Ubuntu:  sudo apt install python3 python3-venv python3-pip"
     echo "  Fedora:         sudo dnf install python3"
     echo "  Arch:           sudo pacman -S python"
     echo "Then run this installer again."

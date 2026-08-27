@@ -208,6 +208,133 @@ def test_maybe_offer_claude_install_never_runs_on_windows():
     run.assert_not_called()
 
 
+def test_python_version_supported():
+    assert bootstrap.python_version_supported((3, 10)) is True
+    assert bootstrap.python_version_supported((3, 12)) is True
+    assert bootstrap.python_version_supported((3, 13)) is True
+    assert bootstrap.python_version_supported((3, 9)) is False
+    assert bootstrap.python_version_supported((2, 7)) is False
+
+
+def test_create_virtualenv_with_uv_is_idempotent(tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    venv_dir = project_dir / ".venv"
+    scripts_dir = venv_dir / ("Scripts" if sys.platform == "win32" else "bin")
+    scripts_dir.mkdir(parents=True)
+    python_name = "python.exe" if sys.platform == "win32" else "python3"
+    (scripts_dir / python_name).write_text("fake", encoding="utf-8")
+
+    run = MagicMock()
+    step = bootstrap.create_virtualenv_with_uv(tmp_path / "uv.exe", venv_dir, run=run)
+
+    assert step.ok is True
+    assert "Already present" in step.detail
+    run.assert_not_called()
+
+
+def test_create_virtualenv_with_uv_runs_uv_venv(tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    venv_dir = project_dir / ".venv"
+    uv_path = tmp_path / "uv.exe"
+
+    run = MagicMock(return_value=MagicMock(returncode=0, stderr=""))
+    step = bootstrap.create_virtualenv_with_uv(uv_path, venv_dir, run=run)
+
+    assert step.ok is True
+    called_cmd = run.call_args[0][0]
+    assert called_cmd == [str(uv_path), "venv", str(venv_dir)]
+
+
+def test_create_virtualenv_with_uv_reports_failure(tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    venv_dir = project_dir / ".venv"
+    uv_path = tmp_path / "uv.exe"
+
+    run = MagicMock(return_value=MagicMock(returncode=1, stderr="no python found"))
+    step = bootstrap.create_virtualenv_with_uv(uv_path, venv_dir, run=run)
+
+    assert step.ok is False
+    assert "no python found" in step.detail
+
+
+def test_install_requirements_with_uv_runs_uv_pip_install(tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    (project_dir / "requirements.txt").write_text("playwright\n", encoding="utf-8")
+    venv_dir = project_dir / ".venv"
+    uv_path = tmp_path / "uv.exe"
+
+    run = MagicMock(return_value=MagicMock(returncode=0, stderr=""))
+    step = bootstrap.install_requirements_with_uv(uv_path, venv_dir, project_dir, run=run)
+
+    assert step.ok is True
+    called_cmd = run.call_args[0][0]
+    assert str(uv_path) in called_cmd
+    assert "pip" in called_cmd
+    assert "install" in called_cmd
+    assert "--python" in called_cmd
+    assert str(project_dir / "requirements.txt") in called_cmd
+
+
+def test_install_requirements_with_uv_missing_file_is_reported(tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    venv_dir = project_dir / ".venv"
+    uv_path = tmp_path / "uv.exe"
+
+    run = MagicMock()
+    step = bootstrap.install_requirements_with_uv(uv_path, venv_dir, project_dir, run=run)
+
+    assert step.ok is False
+    run.assert_not_called()
+
+
+def test_run_setup_uses_uv_when_uv_path_given(tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    (project_dir / "requirements.txt").write_text("playwright\n", encoding="utf-8")
+    uv_path = tmp_path / "uv.exe"
+
+    which = MagicMock(return_value=None)
+    run = MagicMock(return_value=MagicMock(returncode=0, stderr=""))
+
+    with patch("bootstrap.venv.EnvBuilder") as mock_builder_cls:
+        steps = bootstrap.run_setup(
+            project_dir, platform_name="win32", which=which, run=run, uv_path=uv_path
+        )
+
+    names = [s.name for s in steps]
+    assert "Python virtual environment (uv)" in names
+    assert "Python dependencies (uv)" in names
+    assert "Python virtual environment" not in names
+    mock_builder_cls.assert_not_called()
+    # Two uv invocations (venv + pip install), nothing else.
+    assert run.call_count == 2
+    for call in run.call_args_list:
+        assert str(uv_path) in call.args[0]
+
+
+def test_run_setup_skip_python_setup_skips_venv_and_deps(tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+
+    which = MagicMock(return_value=None)
+    run = MagicMock()
+
+    with patch("bootstrap.venv.EnvBuilder") as mock_builder_cls:
+        steps = bootstrap.run_setup(
+            project_dir, platform_name="win32", which=which, run=run, skip_python_setup=True
+        )
+
+    names = [s.name for s in steps]
+    assert names == ["Claude Code CLI", "Google Chrome", "Existing profiles/ data", "First-run welcome marker"]
+    mock_builder_cls.assert_not_called()
+    run.assert_not_called()
+
+
 def test_run_setup_never_calls_login_or_publish_modules(tmp_path):
     """Full pipeline, fully mocked -- confirms no network/browser/profile
     side effects beyond the mocked pip install."""

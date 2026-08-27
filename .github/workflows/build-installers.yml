@@ -1,18 +1,29 @@
 name: Build installers
 
 # Builds the three installer artifacts (Windows .exe, macOS .zip, Linux
-# .tar.gz) plus a SHA256SUMS file. Runs on a manual trigger or a
-# `installer-v*` tag push -- it never runs on every push, since this is a
-# packaging step, not part of normal CI (see .github/workflows/ci.yml for
-# that). It never touches profiles/, never logs into a platform, and never
-# publishes a GitHub release by itself -- that's still a manual step (see
-# RELEASE_CHECKLIST.md), so a maintainer reviews the artifacts first.
+# .tar.gz) plus SHA256SUMS, then smoke-tests each one on its own OS's GitHub
+# runner: silent/non-interactive install, verify the expected files exist,
+# and verify a reinstall never touches a file under profiles/. These are
+# automated platform tests, not a substitute for a human running the
+# installer on their own machine -- see README.md's Testing status section
+# for the exact, honest label for each platform.
+#
+# Runs on: a manual trigger, an `installer-v*` tag push, or -- so installer
+# changes are genuinely built and smoke-tested before merge, not just
+# reviewed as text -- any pull request that touches installer files. It
+# never runs on every push to main, and it never publishes a GitHub release
+# by itself; that stays a manual step (see RELEASE_CHECKLIST.md).
 
 on:
   workflow_dispatch: {}
   push:
     tags:
       - "installer-v*"
+  pull_request:
+    paths:
+      - "installer/**"
+      - ".github/workflows/build-installers.yml"
+      - "requirements.txt"
 
 jobs:
   windows:
@@ -24,26 +35,32 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path payload | Out-Null
-          $exclude = @('.git', 'profiles', '.venv', '__pycache__', '.pytest_cache', 'dist', 'payload', 'payload-python', 'exported-docs')
+          $exclude = @('.git', 'profiles', '.venv', '__pycache__', '.pytest_cache', 'dist', 'payload', 'payload-uv', 'exported-docs')
           Get-ChildItem -Force -Path . | Where-Object { $exclude -notcontains $_.Name } | ForEach-Object {
             Copy-Item -Recurse -Force $_.FullName -Destination "payload/$($_.Name)"
           }
           New-Item -ItemType Directory -Force -Path payload/profiles | Out-Null
 
-      - name: Download embeddable Python for the bootstrap step
+      # uv replaces the Windows embeddable-Python approach: the embeddable
+      # distribution ships without ensurepip, so `venv.EnvBuilder(with_pip=True)`
+      # cannot bootstrap pip into a fresh venv created from it. uv manages its
+      # own Python provisioning and has no ensurepip dependency -- see
+      # installer/bootstrap.py's module docstring for the full reasoning.
+      #
+      # Pinned to a specific uv release rather than "latest" so a build is
+      # reproducible; bump this deliberately (and re-run the smoke test below)
+      # when updating, not silently.
+      - name: Install pinned uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.5.11"
+
+      - name: Stage uv for bundling
         shell: pwsh
         run: |
-          $pyVersion = "3.12.7"
-          $url = "https://www.python.org/ftp/python/$pyVersion/python-$pyVersion-embed-amd64.zip"
-          Invoke-WebRequest -Uri $url -OutFile python-embed.zip
-          New-Item -ItemType Directory -Force -Path payload-python | Out-Null
-          Expand-Archive -Path python-embed.zip -DestinationPath payload-python -Force
-          # The embeddable distribution needs pip enabled and stdlib importable
-          # to run bootstrap.py's `venv` module -- uncomment the ._pth import line.
-          $pth = Get-ChildItem payload-python -Filter "python*._pth" | Select-Object -First 1
-          (Get-Content $pth.FullName) -replace '^#import site', 'import site' | Set-Content $pth.FullName
-          Invoke-WebRequest -Uri "https://bootstrap.pypa.io/get-pip.py" -OutFile get-pip.py
-          & "payload-python\python.exe" get-pip.py --no-warn-script-location
+          New-Item -ItemType Directory -Force -Path payload-uv | Out-Null
+          $uvPath = (Get-Command uv).Source
+          Copy-Item -Force $uvPath payload-uv/uv.exe
 
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
@@ -58,6 +75,50 @@ jobs:
         run: |
           $hash = Get-FileHash -Algorithm SHA256 dist\Socials-Studio-Setup.exe
           "$($hash.Hash.ToLower())  Socials-Studio-Setup.exe" | Out-File -Encoding ascii dist\Socials-Studio-Setup.exe.sha256
+
+      - name: Smoke test -- silent install
+        shell: pwsh
+        run: |
+          $installDir = "$env:RUNNER_TEMP\ss-install"
+          Start-Process -FilePath "dist\Socials-Studio-Setup.exe" `
+            -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$installDir`"" `
+            -Wait -PassThru | Out-Null
+
+          $checks = @(
+            "$installDir\README.md",
+            "$installDir\.venv\Scripts\python.exe",
+            "$installDir\launch.bat",
+            "$installDir\.first-run-pending"
+          )
+          $failed = $false
+          foreach ($path in $checks) {
+            if (Test-Path $path) {
+              Write-Host "OK: $path exists"
+            } else {
+              Write-Host "MISSING: $path"
+              $failed = $true
+            }
+          }
+          if ($failed) { throw "Smoke test failed: one or more expected files are missing after silent install." }
+
+      - name: Smoke test -- reinstall preserves profiles/
+        shell: pwsh
+        run: |
+          $installDir = "$env:RUNNER_TEMP\ss-install"
+          $profileFile = "$installDir\profiles\fake-session\storage_state.json"
+          New-Item -ItemType Directory -Force -Path (Split-Path $profileFile) | Out-Null
+          $originalContent = '{"cookies": "fake-not-real-session-data"}'
+          Set-Content -Path $profileFile -Value $originalContent -NoNewline
+
+          Start-Process -FilePath "dist\Socials-Studio-Setup.exe" `
+            -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$installDir`"" `
+            -Wait -PassThru | Out-Null
+
+          $afterContent = Get-Content -Path $profileFile -Raw
+          if ($afterContent.Trim() -ne $originalContent.Trim()) {
+            throw "Smoke test failed: profiles/ file changed after reinstall. Before: $originalContent  After: $afterContent"
+          }
+          Write-Host "OK: profiles/fake-session/storage_state.json unchanged after reinstall"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -82,6 +143,44 @@ jobs:
         run: |
           shasum -a 256 dist/Socials-Studio-macOS.zip > dist/Socials-Studio-macOS.zip.sha256
 
+      - name: Smoke test -- extract and install
+        run: |
+          set -euo pipefail
+          WORKDIR="$RUNNER_TEMP/ss-smoke"
+          INSTALL_DIR="$RUNNER_TEMP/ss-install"
+          mkdir -p "$WORKDIR"
+          unzip -q dist/Socials-Studio-macOS.zip -d "$WORKDIR"
+          "$WORKDIR/installer/macos/install.sh" "$INSTALL_DIR"
+
+          fail=0
+          for f in "$INSTALL_DIR/README.md" "$INSTALL_DIR/.venv/bin/python3" \
+                   "$INSTALL_DIR/SocialsStudio.command" "$INSTALL_DIR/.first-run-pending"; do
+            if [ -e "$f" ]; then
+              echo "OK: $f exists"
+            else
+              echo "MISSING: $f"
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] || { echo "Smoke test failed: one or more expected files are missing."; exit 1; }
+
+      - name: Smoke test -- reinstall preserves profiles/
+        run: |
+          set -euo pipefail
+          WORKDIR="$RUNNER_TEMP/ss-smoke"
+          INSTALL_DIR="$RUNNER_TEMP/ss-install"
+          PROFILE_FILE="$INSTALL_DIR/profiles/fake-session/storage_state.json"
+          mkdir -p "$(dirname "$PROFILE_FILE")"
+          echo -n '{"cookies": "fake-not-real-session-data"}' > "$PROFILE_FILE"
+
+          "$WORKDIR/installer/macos/install.sh" "$INSTALL_DIR"
+
+          if ! diff -q <(echo -n '{"cookies": "fake-not-real-session-data"}') "$PROFILE_FILE" >/dev/null; then
+            echo "Smoke test failed: profiles/ file changed after reinstall."
+            exit 1
+          fi
+          echo "OK: profiles/fake-session/storage_state.json unchanged after reinstall"
+
       - uses: actions/upload-artifact@v4
         with:
           name: macos-installer
@@ -90,9 +189,14 @@ jobs:
             dist/Socials-Studio-macOS.zip.sha256
 
   linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+
+      - name: Ensure venv/rsync are present
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y python3-venv python3-pip rsync
 
       - name: Package source + installer scripts
         run: |
@@ -105,6 +209,47 @@ jobs:
       - name: Checksum
         run: |
           sha256sum dist/Socials-Studio-Linux.tar.gz > dist/Socials-Studio-Linux.tar.gz.sha256
+
+      - name: Smoke test -- extract and install
+        run: |
+          set -euo pipefail
+          WORKDIR="$RUNNER_TEMP/ss-smoke"
+          INSTALL_DIR="$RUNNER_TEMP/ss-install"
+          mkdir -p "$WORKDIR"
+          tar -xzf dist/Socials-Studio-Linux.tar.gz -C "$WORKDIR"
+          "$WORKDIR/installer/linux/install.sh" "$INSTALL_DIR"
+
+          fail=0
+          for f in "$INSTALL_DIR/README.md" "$INSTALL_DIR/.venv/bin/python3" \
+                   "$INSTALL_DIR/socials-studio-launch.sh" "$INSTALL_DIR/.first-run-pending"; do
+            if [ -e "$f" ]; then
+              echo "OK: $f exists"
+            else
+              echo "MISSING: $f"
+              fail=1
+            fi
+          done
+          [ -f "$HOME/.local/share/applications/socials-studio.desktop" ] \
+            && echo "OK: desktop entry installed" \
+            || { echo "MISSING: desktop entry"; fail=1; }
+          [ "$fail" -eq 0 ] || { echo "Smoke test failed: one or more expected files are missing."; exit 1; }
+
+      - name: Smoke test -- reinstall preserves profiles/
+        run: |
+          set -euo pipefail
+          WORKDIR="$RUNNER_TEMP/ss-smoke"
+          INSTALL_DIR="$RUNNER_TEMP/ss-install"
+          PROFILE_FILE="$INSTALL_DIR/profiles/fake-session/storage_state.json"
+          mkdir -p "$(dirname "$PROFILE_FILE")"
+          echo -n '{"cookies": "fake-not-real-session-data"}' > "$PROFILE_FILE"
+
+          "$WORKDIR/installer/linux/install.sh" "$INSTALL_DIR"
+
+          if ! diff -q <(echo -n '{"cookies": "fake-not-real-session-data"}') "$PROFILE_FILE" >/dev/null; then
+            echo "Smoke test failed: profiles/ file changed after reinstall."
+            exit 1
+          fi
+          echo "OK: profiles/fake-session/storage_state.json unchanged after reinstall"
 
       - uses: actions/upload-artifact@v4
         with:

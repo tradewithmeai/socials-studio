@@ -10,27 +10,46 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
 - **Guided installers for Windows, macOS, and Linux** (`installer/`), aimed at someone with a
   Claude subscription but no GitHub, Git, or Python experience. `Socials-Studio-Setup.exe`
   (Windows), plus `.zip`/`.tar.gz` installer bundles for macOS/Linux, are built by CI (see
-  `.github/workflows/build-installers.yml`) with SHA256 checksums. Each installer copies the
-  plain repository source onto disk -- it is not compiled or frozen into an opaque binary, so
-  Claude Code retains full access to every skill, Markdown file, and Python module -- then runs
-  `installer/bootstrap.py` to set up a Python virtual environment and install dependencies. It
-  checks for Claude Code and Google Chrome without installing either silently: on macOS/Linux it
-  offers to run Anthropic's own official Claude Code installer after explicit confirmation; on
-  Windows it links to the download page instead. It never logs into a platform, never publishes
-  anything, and never touches an existing `profiles/` directory, so a reinstall or upgrade
-  preserves saved logins and OAuth tokens. A first-run marker (`.first-run-pending`) tells Claude
-  Code to welcome the user and offer guided platform setup on the very first launch only -- see
-  the note in `CLAUDE.md`.
+  `.github/workflows/build-installers.yml`) with SHA256 checksums, and smoke-tested on each
+  platform's own GitHub runner before merge -- silent install, verify the expected files exist,
+  verify a reinstall never touches a file under `profiles/`. Each installer copies the plain
+  repository source onto disk -- it is not compiled or frozen into an opaque binary, so Claude
+  Code retains full access to every skill, Markdown file, and Python module -- then prepares a
+  Python virtual environment and installs dependencies. It checks for Claude Code and Google
+  Chrome without installing either silently: on macOS/Linux it offers to run Anthropic's own
+  official Claude Code installer after explicit confirmation; on Windows it links to the download
+  page instead. It never logs into a platform, never publishes anything, and never touches an
+  existing `profiles/` directory, so a reinstall or upgrade preserves saved logins and OAuth
+  tokens. A first-run marker (`.first-run-pending`) tells Claude Code to welcome the user and
+  offer guided platform setup on the very first launch only -- see the note in `CLAUDE.md`.
+- **Windows Python provisioning uses `uv`, not an embeddable-Python + `venv` approach.** The
+  official Windows embeddable Python distribution ships without `ensurepip`, so
+  `venv.EnvBuilder(with_pip=True)` cannot bootstrap pip into a venv created from it -- this was
+  caught before shipping, not assumed to work. The installer now bundles a pinned
+  [`uv`](https://github.com/astral-sh/uv) binary, which manages its own Python provisioning and
+  has no `ensurepip` dependency; `uv venv` + `uv pip install` now do this work on Windows, with a
+  CI smoke test proving the resulting `.venv` actually exists after a silent install.
+- macOS/Linux `install.sh` now checks the *actual runtime version* of any candidate `python3`
+  (rejecting anything older than 3.10) instead of trusting a `python3.1x`-looking filename.
+- `installer/bootstrap.py` gained `--uv-path` and `--skip-python-setup`, and
+  `create_virtualenv_with_uv`/`install_requirements_with_uv` alongside the existing
+  venv/pip-based functions, so the same script serves both provisioning paths.
 - Focused unit tests for the installer's setup logic (`tests/test_installer_bootstrap.py`) --
   fully mocked, no real virtual environment, network call, or `profiles/` access.
 - README and the website got a plain-language pass: the two supported installation routes (ask
   an existing Claude Code install, or use the guided installer) are now explained above the fold,
-  ahead of the command-line instructions, which remain available for contributors.
+  ahead of the command-line instructions, which remain available for contributors. Wording was
+  corrected to stop claiming "the installer sets up Python for you" on macOS/Linux, where that
+  isn't true yet -- only Windows currently provisions Python fully automatically.
 
-**Still needs human testing before it's genuinely done:** the Windows installer has been built
-and reviewed but not run end-to-end on a real Windows machine by a second person; the macOS and
-Linux installers have not been run on real hardware at all. None of this is claimed as verified
-in the README or website -- see their Testing status sections.
+**Testing status, stated per-platform, not as one blanket claim:** Windows has automated build and
+installation testing (CI smoke test) but is still awaiting a human test on a normal Windows
+machine. Linux has had its installer mechanics manually tested on Ubuntu 24.04 x64 (source
+install, venv creation, dependency install, launcher/desktop entry, byte-for-byte `profiles/`
+preservation on reinstall) in addition to the CI smoke test -- real Chrome/account publishing was
+not tested through this package. macOS has only the automated CI runner test; no human hardware
+test has been received. No platform is described as fully verified until a person completes
+installation and successfully launches Socials Studio -- see README.md's Testing status section.
 
 ### Fixed
 

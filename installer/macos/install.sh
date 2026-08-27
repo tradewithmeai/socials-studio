@@ -8,8 +8,13 @@
 # logs into a platform, never publishes anything, never collects a
 # credential.
 #
-# Has NOT been run on a real Mac as part of this change -- see the PR notes
-# for what still needs human testing before this ships as verified.
+# CI smoke-tests this script on macos-latest (see
+# .github/workflows/build-installers.yml) -- silent install, verify expected
+# files exist, verify a reinstall doesn't touch profiles/. That's real,
+# automated coverage, but it is not the same as a person running this on
+# their own Mac. See README.md's Testing status section for the current,
+# honest label -- do not treat this as verified on real hardware until a
+# human confirms it.
 #
 # Usage (once downloaded/extracted):
 #   ./install.sh [destination-directory]
@@ -29,18 +34,25 @@ mkdir -p "$DEST"
 rsync -a --exclude 'profiles/' --exclude '.git/' "$REPO_ROOT/" "$DEST/"
 mkdir -p "$DEST/profiles"
 
+# Find a python3 that is ACTUALLY 3.10+, not just named as if it might be --
+# a distro's plain `python3` can resolve to something older, and trusting
+# the name alone would silently accept it.
 PYTHON_BIN=""
 for candidate in python3.13 python3.12 python3.11 python3.10 python3; do
     if command -v "$candidate" >/dev/null 2>&1; then
-        PYTHON_BIN="$candidate"
-        break
+        if "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' 2>/dev/null; then
+            PYTHON_BIN="$candidate"
+            break
+        fi
     fi
 done
 
 if [ -z "$PYTHON_BIN" ]; then
     echo ""
-    echo "Python 3.10+ was not found on this Mac."
-    echo "Install it from https://www.python.org/downloads/macos/ (or via"
+    echo "No Python 3.10+ was found on this Mac (checked python3.10 through"
+    echo "python3.13, and plain python3 -- rejecting anything older than 3.10)."
+    echo "This installer does not set up Python for you on macOS -- install one"
+    echo "yourself from https://www.python.org/downloads/macos/ (or via"
     echo "Homebrew: brew install python@3.12), then run this installer again."
     echo ""
     exit 1

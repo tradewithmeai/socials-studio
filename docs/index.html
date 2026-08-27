@@ -258,20 +258,21 @@
       check) and wait for your yes each time — nothing happens silently.
     </p>
     <p><strong>New to all this?</strong> Download the installer for your system and run it — no
-      GitHub account, no Git, no Python knowledge needed:</p>
+      GitHub account or Git required on any platform:</p>
     <ul style="color: var(--text-muted);">
-      <li><strong>Windows:</strong> <code>Socials-Studio-Setup.exe</code></li>
-      <li><strong>macOS:</strong> <code>Socials-Studio-macOS.zip</code> — unzip, run <code>install.sh</code></li>
-      <li><strong>Linux:</strong> <code>Socials-Studio-Linux.tar.gz</code> — extract, run <code>install.sh</code></li>
+      <li><strong>Windows:</strong> <code>Socials-Studio-Setup.exe</code> — sets up Python for you automatically, no Python knowledge needed</li>
+      <li><strong>macOS:</strong> <code>Socials-Studio-macOS.zip</code> — unzip, run <code>install.sh</code>; needs a system Python 3.10+ already present</li>
+      <li><strong>Linux:</strong> <code>Socials-Studio-Linux.tar.gz</code> — extract, run <code>install.sh</code>; same Python requirement as macOS</li>
     </ul>
     <p style="font-size:0.92rem;">
       Grab the latest from the
       <a href="https://github.com/tradewithmeai/socials-studio/releases">Releases page</a>. The
-      installer sets up Python for you, checks for Chrome and Claude Code, and finishes by opening
-      a launcher — the first time you run it, Claude introduces itself and offers to walk you
-      through connecting your first platform. It never logs into a social platform or publishes
-      anything during setup. <em>macOS and Linux installers haven't been verified on real hardware
-      yet — see the README's testing status before relying on them.</em>
+      installer checks for Chrome and Claude Code and finishes by opening a launcher — the first
+      time you run it, Claude introduces itself and offers to walk you through connecting your
+      first platform. It never logs into a social platform or publishes anything during setup.
+      <em>CI builds and smoke-tests all three installers on GitHub's own runners before merge, but
+      that isn't the same as a person installing this on real hardware — see the README's testing
+      status for exactly what's verified on each platform; none is fully verified yet.</em>
     </p>
     <p style="font-size:0.92rem;">
       Either route ends with a real, human-driven login per platform (or a one-time OAuth step for

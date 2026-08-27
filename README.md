@@ -44,28 +44,32 @@ silently. No separate installer needed for this route.
 
 ### New to all this? Use the guided installer.
 
-Download the installer for your operating system and run it -- no GitHub account, no Git, no
-Python knowledge required:
+Download the installer for your operating system and run it -- no GitHub account or Git required
+on any platform:
 
-- **Windows:** `Socials-Studio-Setup.exe`
-- **macOS:** `Socials-Studio-macOS.zip` (unzip, then run `install.sh`)
-- **Linux:** `Socials-Studio-Linux.tar.gz` (extract, then run `install.sh`)
+- **Windows:** `Socials-Studio-Setup.exe` -- Python is set up for you automatically, no Python
+  knowledge needed.
+- **macOS:** `Socials-Studio-macOS.zip` (unzip, then run `install.sh`) -- needs a system Python
+  3.10+ already present (common on modern Macs); the installer checks the real version, not just
+  a filename, and tells you exactly how to get one if it's missing.
+- **Linux:** `Socials-Studio-Linux.tar.gz` (extract, then run `install.sh`) -- same Python
+  requirement and version check as macOS.
 
 Grab the latest from the [Releases page](https://github.com/tradewithmeai/socials-studio/releases).
 The installer copies the project onto your machine, checks for [Claude Code](https://claude.com/claude-code)
 and Google Chrome (offering to install Claude Code for you if it's missing, on macOS/Linux), and
-sets up Python for you -- you never need to install or configure Python yourself. It finishes by
-opening a Socials Studio launcher; the first time you run it, Claude introduces itself, explains
-what it can do, and offers to walk you through connecting your first platform.
+prepares the Python environment Socials Studio runs in. It finishes by opening a Socials Studio
+launcher; the first time you run it, Claude introduces itself, explains what it can do, and offers
+to walk you through connecting your first platform.
 
 You'll still need to sign in to Claude with a qualifying account -- the installer can't do that
 part for you, and it never touches your social media accounts, logs in anywhere, or publishes
 anything during setup.
 
-*(macOS and Linux installers are new and not yet verified on real hardware -- see
-[Testing status](#testing-status). The Windows installer is unsigned for now, so Windows may show
-an "unrecognized publisher" warning; that's expected until this project has a code-signing
-certificate.)*
+*(See [Testing status](#testing-status) below for exactly what's been verified on each platform --
+none of the three is claimed as fully verified yet. The Windows installer is unsigned for now, so
+Windows may show an "unrecognized publisher" warning; that's expected until this project has a
+code-signing certificate.)*
 
 ---
 
@@ -210,12 +214,22 @@ output or anything else -- please [file a beta test report](#reporting-problems-
 either way, pass or fail, both are useful. Other coding agents, operating systems, and
 configurations haven't been validated at all yet; reports on those are especially welcome.
 
-**Installers, specifically:** the Windows installer (`Socials-Studio-Setup.exe`) has been built
-and reviewed but not yet run end-to-end on a real Windows machine by a second person. The macOS
-and Linux installers have **not** been run on real hardware at all yet -- they exist and are built
-by CI, but until someone confirms they work on an actual Mac or Linux machine, treat them as
-untested, not verified. If you try one, a beta test report saying what happened is exactly what
-this needs.
+**Installers, specifically:** CI builds and smoke-tests all three on GitHub's own runners (silent
+install, verify the expected files exist, verify a reinstall doesn't touch `profiles/`) before any
+installer change merges -- see `.github/workflows/build-installers.yml`. That's real, automated
+platform coverage, but it is not the same as a person installing this on their own machine and
+actually launching Socials Studio. Do not read any of the three as fully verified until that's
+happened:
+
+- **Windows:** automated build and installation tested; awaiting human test on a normal Windows
+  machine.
+- **Linux:** installer mechanics tested on Ubuntu 24.04 x64; real Chrome/account publishing not
+  tested through this package.
+- **macOS:** automated runner test only; no human hardware test received.
+
+If you try any of these on real hardware, a [beta test report](#reporting-problems--requesting-features)
+saying exactly what happened -- pass or fail -- is exactly what this needs, especially for macOS
+and Linux, which haven't had a real-hardware run yet.
 
 ## Install for contributors (CLI route)
 

@@ -11,21 +11,27 @@
 ;      *except* it never overwrites an existing profiles/ directory there --
 ;      see the [Files] "profiles\*" exclude below. That's what makes a
 ;      reinstall/upgrade preserve saved logins and OAuth tokens.
-;   2. Bundles a minimal embeddable Python (see BUNDLED_PYTHON_DIR below,
-;      populated by the CI build step) solely to run installer\bootstrap.py
-;      once. Bootstrap creates the project's own .venv and installs
-;      requirements.txt into it -- the embeddable Python is not the runtime
-;      Socials Studio uses day to day, it only bootstraps that runtime.
-;   3. Never logs into a platform, never launches a publish flow, never
-;      collects a credential. It only checks whether Claude Code and Chrome
-;      are already installed (see bootstrap.py) and reports what to do if not.
+;   2. Bundles a pinned `uv` binary (see payload-uv\, populated by the CI
+;      build step) to create {app}\.venv and install requirements.txt into
+;      it -- see installer\bootstrap.py's module docstring for why `uv` is
+;      used here instead of Python's official embeddable distribution: the
+;      embeddable distribution ships without `ensurepip`, so it can't
+;      bootstrap pip into a fresh venv. `uv` doesn't have that dependency.
+;   3. Runs bootstrap.py (using the venv's own freshly-created python, with
+;      --skip-python-setup, since uv already did that part) to check for
+;      Claude Code and Chrome and write the first-run marker. Never logs
+;      into a platform, never launches a publish flow, never collects a
+;      credential.
 ;   4. Creates a Start Menu / Desktop shortcut that opens a terminal in {app}
 ;      and runs `claude` -- see launch.bat.
 ;
 ; This script is built with `iscc setup.iss` by CI using the official
 ; jrsoftware/innosetup toolchain -- see the workflow for exact invocation.
-; It has not been compiled or run on a real Windows machine as part of this
-; change; that verification is still required before shipping (see PR notes).
+; The workflow also runs a smoke test: silent install, verify the venv/
+; launcher/marker exist, verify a reinstall doesn't touch profiles/. See
+; the PR for the actual run's result -- an artifact isn't claimed "built"
+; here, only described; whether the build actually succeeded is reported
+; from the real CI run, not asserted in this comment.
 
 #define MyAppName "Socials Studio"
 #define MyAppVersion "0.1.0-beta.3"
@@ -61,9 +67,9 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 ; payload" step). profiles/ is excluded here so an existing install's saved
 ; sessions are never overwritten by a reinstall.
 Source: "..\..\payload\*"; DestDir: "{app}"; Excludes: "profiles\*"; Flags: ignoreversion recursesubdirs createallsubdirs
-; The embeddable Python CI downloads and stages at build time, used only to
-; run bootstrap.py once.
-Source: "..\..\payload-python\*"; DestDir: "{app}\_bootstrap-python"; Flags: ignoreversion recursesubdirs createallsubdirs
+; The pinned uv binary CI stages at build time -- see the workflow's
+; "Stage uv for bundling" step. Used only to provision {app}\.venv.
+Source: "..\..\payload-uv\*"; DestDir: "{app}\_bootstrap-uv"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "launch.bat"; DestDir: "{app}"; Flags: ignoreversion
 
 [Dirs]
@@ -80,12 +86,30 @@ Name: "{commondesktop}\Socials Studio"; Filename: "{app}\launch.bat"; WorkingDir
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"
 
 [Run]
-; Runs bootstrap.py with the bundled embeddable Python immediately after
-; files are copied. This creates {app}\.venv and installs requirements.txt
-; into it -- no login, no publish, no platform contact.
-Filename: "{app}\_bootstrap-python\python.exe"; \
-    Parameters: """{app}\installer\bootstrap.py"" --project-dir ""{app}"""; \
+; Step 1: uv provisions {app}\.venv (creating or finding a suitable Python
+; itself -- no system Python required). No login, no publish, no platform
+; contact.
+Filename: "{app}\_bootstrap-uv\uv.exe"; \
+    Parameters: "venv ""{app}\.venv"""; \
     WorkingDir: "{app}"; \
     StatusMsg: "Setting up Socials Studio's Python environment..."; \
     Flags: runhidden waituntilterminated
+
+; Step 2: uv installs requirements.txt into that venv.
+Filename: "{app}\_bootstrap-uv\uv.exe"; \
+    Parameters: "pip install --python ""{app}\.venv\Scripts\python.exe"" -r ""{app}\requirements.txt"""; \
+    WorkingDir: "{app}"; \
+    StatusMsg: "Installing dependencies..."; \
+    Flags: runhidden waituntilterminated
+
+; Step 3: bootstrap.py, run with the venv's own python, handles the rest
+; (Claude Code / Chrome checks, the profiles/ preservation guarantee, and
+; the first-run marker) -- --skip-python-setup because steps 1-2 already
+; did the venv/dependency work.
+Filename: "{app}\.venv\Scripts\python.exe"; \
+    Parameters: """{app}\installer\bootstrap.py"" --project-dir ""{app}"" --skip-python-setup"; \
+    WorkingDir: "{app}"; \
+    StatusMsg: "Checking for Claude Code and Chrome..."; \
+    Flags: runhidden waituntilterminated
+
 Filename: "{app}\launch.bat"; Description: "Launch Socials Studio now"; Flags: postinstall nowait skipifsilent unchecked
