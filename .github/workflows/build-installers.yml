@@ -118,12 +118,41 @@ jobs:
 
       - name: Smoke test -- silent install
         shell: pwsh
-        timeout-minutes: 8
+        timeout-minutes: 6
         run: |
           $installDir = "$env:RUNNER_TEMP\ss-install"
-          Start-Process -FilePath "dist\Socials-Studio-Setup.exe" `
+          $proc = Start-Process -FilePath "dist\Socials-Studio-Setup.exe" `
             -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$installDir`"" `
-            -Wait -PassThru | Out-Null
+            -PassThru
+
+          # Poll ourselves (budget shorter than this step's own timeout-minutes)
+          # rather than a bare -Wait, so that if the install hangs we can dump
+          # diagnostics -- what's still running, and however much of
+          # _setup-python.log got written -- before killing it, all inside this
+          # same step. A step killed purely by its own timeout-minutes loses
+          # that chance: the script is torn down mid-line with no opportunity
+          # to inspect the state it leaves behind.
+          $deadline = (Get-Date).AddMinutes(4)
+          while (-not $proc.HasExited -and (Get-Date) -lt $deadline) {
+            Start-Sleep -Seconds 5
+          }
+          if (-not $proc.HasExited) {
+            Write-Host "Socials-Studio-Setup.exe did not finish within the polling budget -- still running."
+            Write-Host "----- processes matching setup/cmd/uv/python under $installDir or dist -----"
+            Get-CimInstance Win32_Process |
+              Where-Object { $_.CommandLine -match [regex]::Escape($installDir) -or $_.CommandLine -match "Socials-Studio-Setup" } |
+              Select-Object ProcessId, Name, CommandLine | Format-List | Out-String | Write-Host
+            $log = "$installDir\_setup-python.log"
+            if (Test-Path $log) {
+              Write-Host "----- $log (partial, install still running) -----"
+              Get-Content $log | Write-Host
+              Write-Host "----------------"
+            } else {
+              Write-Host "$log does not exist yet."
+            }
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            throw "Smoke test failed: silent install did not complete within the polling budget."
+          }
 
           $checks = @(
             "$installDir\README.md",
