@@ -271,6 +271,31 @@ def test_maybe_offer_claude_install_default_confirm_handles_closed_stdin():
     run.assert_not_called()
 
 
+def test_main_no_interactive_claude_offer_never_touches_stdin(tmp_path):
+    """Regression test: the packaged Windows installer's Step 3 runs main()
+    hidden, with no console a human could answer a prompt in. Confirmed
+    live -- this hung the Windows CI smoke test for the full step timeout,
+    with bootstrap.py's python.exe still running, stuck in input(). A
+    hidden-but-open console never reaches EOF, so the EOFError handling in
+    the default confirm never triggers and it blocks forever instead.
+    --no-interactive-claude-offer must make main() skip the prompt
+    entirely -- input() must never even be called."""
+    fake_steps = [bootstrap.SetupStep("Claude Code CLI", False, "missing")]
+    argv = [
+        "bootstrap.py",
+        "--project-dir", str(tmp_path),
+        "--skip-python-setup",
+        "--no-interactive-claude-offer",
+    ]
+
+    with patch.object(bootstrap.sys, "argv", argv), \
+         patch.object(bootstrap, "run_setup", return_value=fake_steps), \
+         patch("builtins.input", side_effect=AssertionError("input() must not be called")):
+        result = bootstrap.main()
+
+    assert result == 1  # the fake Claude Code step is still "not ok"
+
+
 def test_python_version_supported():
     assert bootstrap.python_version_supported((3, 10)) is True
     assert bootstrap.python_version_supported((3, 12)) is True

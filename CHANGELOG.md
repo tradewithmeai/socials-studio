@@ -77,6 +77,18 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
   contents if the expected files are still missing. Also added `timeout-minutes` to every Windows
   step that can plausibly hang, so a future regression fails cleanly within minutes instead of
   running for hours unnoticed.
+- **Fixed a second, unrelated real hang, in Step 3 (`bootstrap.py`), found only once the `uv`
+  redirection hang above was actually fixed.** With `uv`'s output no longer the problem, the
+  Windows CI smoke test still hung for the full step timeout -- the self-polling diagnostics added
+  above (`Get-CimInstance Win32_Process`, plus heartbeat lines in `setup-python.bat`) showed `uv
+  venv`/`uv pip install` had both already succeeded, and `bootstrap.py`'s own `python.exe` was the
+  process still running. Root cause: `main()` unconditionally calls `maybe_offer_claude_install`,
+  whose default confirm function calls `input()` and only treats a *closed* stdin (`EOFError`) as
+  "no" -- but Inno's `runhidden` gives Step 3 a hidden-but-*open* console, which never reaches EOF,
+  so it blocked forever instead of declining. `bootstrap.py` gained
+  `--no-interactive-claude-offer`, which `setup.iss`'s Step 3 now passes, to skip this prompt
+  entirely -- Windows's real, working opt-in for installing Claude Code is the separate finish-page
+  checkbox from the bullet above, not this CLI-style stdin prompt.
 - **macOS/Linux CI smoke tests no longer mask failures.** Removed every `|| true` on the installer
   script invocation and the post-extraction `chmod +x` repair -- the packaged archive must contain
   executable scripts as downloaded (`test -x` now asserts this before running anything), and any

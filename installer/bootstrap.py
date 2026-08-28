@@ -36,6 +36,21 @@ docs claim is fully automatic.
 
 Usage:
     python bootstrap.py --project-dir /path/to/socials-studio [--uv-path /path/to/uv] [--skip-python-setup]
+
+## Why `--no-interactive-claude-offer` exists
+
+`maybe_offer_claude_install` normally prompts on stdin ("Install Claude Code now...? [y/N]"),
+which is the real, correct behaviour for the CLI route (asking Claude Code to set the project up
+directly) -- there's a real terminal to answer it in. The packaged Windows installer's Step 3
+`[Run]` entry (see setup.iss) runs this script hidden, with no console a human could type into --
+its `_default_confirm` catches `EOFError` for a closed/absent stdin, but a *hidden-but-open*
+console (what Inno's `runhidden` actually gives it) never reaches EOF, so `input()` just blocks
+forever. Confirmed live: this hung the Windows CI smoke test for the full step timeout with
+`bootstrap.py` still running, evidenced by `Get-CimInstance Win32_Process` showing it stuck at this
+exact command. Windows's real, working opt-in for installing Claude Code is the separate finish-page
+checkbox (`setup.iss`'s `[Code]`/`[Run]` -- see installer/README.md's "Offering to install Claude
+Code" section); this flag tells Step 3 to skip the redundant, stdin-blocking CLI-style prompt
+entirely rather than ask a question nothing can ever answer.
 """
 
 from __future__ import annotations
@@ -485,6 +500,15 @@ def main() -> int:
         default=None,
         help="uv --python-preference value (e.g. only-managed) -- only used with --uv-path",
     )
+    parser.add_argument(
+        "--no-interactive-claude-offer",
+        action="store_true",
+        help=(
+            "Never prompt on stdin to offer installing Claude Code -- used by the packaged "
+            "Windows installer, which runs this script hidden and offers Claude Code via its "
+            "own finish-page checkbox instead. See the module docstring."
+        ),
+    )
     args = parser.parse_args()
 
     project_dir = Path(args.project_dir).expanduser().resolve()
@@ -508,7 +532,10 @@ def main() -> int:
     claude_step = steps[0]
     if not claude_step.ok:
         print()
-        maybe_offer_claude_install(claude_step, sys.platform)
+        if args.no_interactive_claude_offer:
+            maybe_offer_claude_install(claude_step, sys.platform, confirm=lambda _prompt: False)
+        else:
+            maybe_offer_claude_install(claude_step, sys.platform)
 
     failed = [s for s in steps if not s.ok]
     if failed:

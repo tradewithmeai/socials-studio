@@ -91,6 +91,15 @@ already found (`ClaudeCodeMissing()` in `setup.iss`'s `[Code]` section), and onl
 checks it and clicks Finish. Declining either way is fine: the launcher installs regardless, and
 the user is told plainly that Claude Code is still required before Socials Studio will work.
 
+That split is enforced, not just documented: `setup.iss`'s Step 3 passes
+`--no-interactive-claude-offer`, which makes `main()` skip `maybe_offer_claude_install`'s stdin
+prompt entirely rather than call it with no console attached. This was a real, live-confirmed bug,
+not a hypothetical -- `_default_confirm`'s `input()` call only treats a *closed* stdin (`EOFError`)
+as "no", but a hidden-but-open console (what Inno's `runhidden` actually gives Step 3) never
+reaches EOF, so it blocked forever instead. The Windows CI smoke test caught this: the step hung
+for its full timeout with `bootstrap.py`'s `python.exe` still running, confirmed directly via
+`Get-CimInstance Win32_Process` showing it stuck at that exact command line.
+
 ## Files
 
 | File | Purpose |

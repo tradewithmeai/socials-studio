@@ -155,9 +155,18 @@ Filename: "{sys}\cmd.exe"; \
 ; Step 3: bootstrap.py, run with the venv's own python, handles the rest
 ; (Claude Code / Chrome checks, the profiles/ preservation guarantee, and
 ; the first-run marker) -- --skip-python-setup because steps 1-2 already
-; did the venv/dependency work.
+; did the venv/dependency work. --no-interactive-claude-offer because this
+; runs hidden with no console a human could answer a prompt in -- without
+; it, bootstrap.py's default Claude Code offer calls input() and blocks
+; forever (a hidden-but-open console never reaches EOF, so the existing
+; EOFError handling never triggers). Confirmed live: this hung the CI
+; smoke test for the full step timeout, evidenced by Get-CimInstance
+; Win32_Process showing this exact python.exe still running. Windows's
+; real opt-in for installing Claude Code is the separate finish-page
+; checkbox below, not this CLI-style prompt -- see bootstrap.py's module
+; docstring and installer/README.md's "Offering to install Claude Code".
 Filename: "{app}\.venv\Scripts\python.exe"; \
-    Parameters: """{app}\installer\bootstrap.py"" --project-dir ""{app}"" --skip-python-setup"; \
+    Parameters: """{app}\installer\bootstrap.py"" --project-dir ""{app}"" --skip-python-setup --no-interactive-claude-offer"; \
     WorkingDir: "{app}"; \
     StatusMsg: "Checking for Claude Code and Chrome..."; \
     Flags: runhidden waituntilterminated
