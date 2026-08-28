@@ -33,17 +33,23 @@ into a fresh venv created from it -- this is a genuine limitation of that distri
 something specific to this project's code. The installer now bundles a pinned
 [`uv`](https://github.com/astral-sh/uv) binary instead. `uv` manages its own Python provisioning
 (downloading an isolated interpreter if it needs to) and has no `ensurepip` dependency, so the
-Inno Setup `[Run]` section uses it directly: `uv venv --python 3.12 --python-preference
-only-managed`, then `uv pip install`, before handing off to `bootstrap.py --skip-python-setup` for
-the remaining checks. Both `uv` calls are routed through `cmd.exe /C ... >"{app}\_setup-python.log"
-2>&1` -- confirmed live, running the same `uv` command directly completes in seconds, but run
-exactly the same way through Inno Setup's plain Exec (no output redirection) the CI job hung
-indefinitely: `uv`'s live-updating download progress fills the child process's output pipe, which
-Inno's `[Run]` mechanism never drains, so the write blocks forever once the OS pipe buffer is full.
-Redirecting to a real log file (not `NUL`) removes the pipe entirely while keeping any failure
-diagnosable -- an earlier version of this fix redirected to `NUL`, which stopped the hang but also
-hid a genuine `uv` failure with no way to see why; the smoke test now prints this log's contents on
-failure. `--python-preference only-managed` is verified against uv 0.5.11's real
+Inno Setup `[Run]` section uses it, via a small bundled script (`setup-python.bat`, staged into
+`{app}` alongside `launch.bat`) rather than an inline `cmd.exe /C` command: `uv venv --python 3.12
+--python-preference only-managed`, then `uv pip install`, both redirected to
+`{app}\_setup-python.log` from inside the script, before handing off to `bootstrap.py
+--skip-python-setup` for the remaining checks. Getting here took two real, live-confirmed failures:
+first, calling `uv` with no output redirection at all hung the CI job indefinitely -- `uv`'s
+live-updating download progress fills the child process's output pipe, and Inno Setup's plain Exec
+never drains it, so the write blocks forever once the OS pipe buffer is full. Redirecting fixed
+that, but the first attempt built the redirection as an inline `cmd.exe /C "..." >"...log" 2>&1`
+Parameters string, which failed a different way: cmd.exe's `/C` argument parser mishandles a
+command line that both starts with a quoted path and contains a `>` redirection, failing instantly
+with "The filename, directory name, or volume label syntax is incorrect" before `uv` ever ran --
+and Inno Setup surfaced no error for it, so the install looked like it had "succeeded" while the
+venv was silently never created. Reproduced locally outside CI to confirm the cause. A real `.bat`
+file sidesteps the whole class of problem: Windows launches it directly with no `cmd.exe /C`
+argument-string assembly involved, and the redirection is ordinary batch-file syntax.
+`--python-preference only-managed` is verified against uv 0.5.11's real
 [`PythonPreference` enum](https://github.com/astral-sh/uv/blob/0.5.11/crates/uv-python/src/discovery.rs)
 -- it forces uv to provision its own downloaded Python 3.12 rather than opportunistically using a
 system Python if one happens to be present. The Windows CI smoke test proves this, not just the
@@ -85,6 +91,7 @@ the user is told plainly that Claude Code is still required before Socials Studi
 | `bootstrap.py` | Shared setup logic, tested in `tests/test_installer_bootstrap.py` |
 | `windows/setup.iss` | Inno Setup script producing `Socials-Studio-Setup.exe` |
 | `windows/launch.bat` | Desktop/Start Menu launcher |
+| `windows/setup-python.bat` | Runs both `uv` provisioning steps during install -- see the Python provisioning note above |
 | `macos/install.sh` | Stages the repo, runs `bootstrap.py`, installs the launcher |
 | `macos/SocialsStudio.command` | Double-click launcher |
 | `linux/install.sh` | Stages the repo, runs `bootstrap.py`, installs the launcher + `.desktop` entry |

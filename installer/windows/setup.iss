@@ -82,6 +82,7 @@ Source: "..\..\payload\*"; DestDir: "{app}"; Excludes: "profiles\*"; Flags: igno
 ; "Stage uv for bundling" step. Used only to provision {app}\.venv.
 Source: "..\..\payload-uv\*"; DestDir: "{app}\_bootstrap-uv"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "launch.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "setup-python.bat"; DestDir: "{app}"; Flags: ignoreversion
 
 [Dirs]
 ; Created if it doesn't already exist; never touched if it does (see [Files]
@@ -110,36 +111,35 @@ begin
 end;
 
 [Run]
-; Step 1: uv provisions {app}\.venv from its own *managed* Python 3.12 --
-; --python-preference only-managed forces this rather than opportunistically
-; picking up whatever Python (if any) is already on the machine. Verified
-; against uv 0.5.11's real PythonPreference enum:
-; https://github.com/astral-sh/uv/blob/0.5.11/crates/uv-python/src/discovery.rs
-; ("only-managed": "Only use managed Python installations; never use system
-; Python installations.") -- not guessed. No system Python is required.
+; Steps 1-2: setup-python.bat provisions {app}\.venv from uv's own *managed*
+; Python 3.12 (--python-preference only-managed forces this rather than
+; opportunistically picking up whatever Python, if any, is already on the
+; machine -- verified against uv 0.5.11's real PythonPreference enum:
+; https://github.com/astral-sh/uv/blob/0.5.11/crates/uv-python/src/discovery.rs,
+; "only-managed": "Only use managed Python installations; never use system
+; Python installations." -- not guessed, no system Python required), then
+; installs requirements.txt into that same venv. Both uv calls and their
+; output redirection live inside setup-python.bat itself, run as a plain
+; script rather than assembled as a cmd.exe /C Parameters string.
 ;
-; Routed through cmd.exe with output redirected to a log file, not NUL.
-; Confirmed live: run directly, uv provisions a managed Python in seconds --
-; but run exactly the same way through Inno Setup's plain Exec (no output
-; redirection at all), the CI job hung indefinitely. uv writes a
-; live-updating progress display while downloading; Inno's Exec doesn't
-; drain the child process's output pipes, so once uv's writes fill the OS
-; pipe buffer it blocks forever waiting for a reader that will never come.
-; Redirecting removes the pipe entirely -- there's nothing to fill. A real
-; file (not NUL) so a failure here is still diagnosable: see
+; That distinction matters and was hard-won: uv writes a live-updating
+; progress display while downloading, and Inno Setup's plain Exec doesn't
+; drain a child process's output pipes, so calling uv directly with no
+; redirection at all hung the CI job indefinitely once the OS pipe buffer
+; filled. Redirecting output removed that hang -- but redirecting via an
+; inline `cmd.exe /C "..." >"...log" 2>&1` Parameters string introduced a
+; second, different failure: cmd.exe's /C argument parser mishandles a
+; command line that both starts with a quoted path and contains a `>`
+; redirection, and fails instantly with "The filename, directory name, or
+; volume label syntax is incorrect" -- before uv ever runs, and without
+; Inno surfacing that error anywhere. Confirmed live, reproduced locally.
+; A real .bat file sidesteps this entirely: CreateProcess launches it
+; directly, no cmd.exe /C argument-string assembly involved, and the
+; redirection lives in ordinary batch-file syntax instead. See
 ; {app}\_setup-python.log if Socials Studio doesn't work after install.
-Filename: "{sys}\cmd.exe"; \
-    Parameters: "/C ""{app}\_bootstrap-uv\uv.exe"" venv --python 3.12 --python-preference only-managed ""{app}\.venv"" >""{app}\_setup-python.log"" 2>&1"; \
+Filename: "{app}\setup-python.bat"; \
     WorkingDir: "{app}"; \
     StatusMsg: "Setting up Socials Studio's Python environment..."; \
-    Flags: runhidden waituntilterminated
-
-; Step 2: uv installs requirements.txt into that same managed-Python venv.
-; Same log-file-redirection reasoning as Step 1; appends to the same log.
-Filename: "{sys}\cmd.exe"; \
-    Parameters: "/C ""{app}\_bootstrap-uv\uv.exe"" pip install --python ""{app}\.venv\Scripts\python.exe"" -r ""{app}\requirements.txt"" >>""{app}\_setup-python.log"" 2>&1"; \
-    WorkingDir: "{app}"; \
-    StatusMsg: "Installing dependencies..."; \
     Flags: runhidden waituntilterminated
 
 ; Step 3: bootstrap.py, run with the venv's own python, handles the rest
