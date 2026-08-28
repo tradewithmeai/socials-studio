@@ -46,10 +46,17 @@ Parameters string, which failed a different way: cmd.exe's `/C` argument parser 
 command line that both starts with a quoted path and contains a `>` redirection, failing instantly
 with "The filename, directory name, or volume label syntax is incorrect" before `uv` ever ran --
 and Inno Setup surfaced no error for it, so the install looked like it had "succeeded" while the
-venv was silently never created. Reproduced locally outside CI to confirm the cause. A real `.bat`
-file sidesteps the whole class of problem: Windows launches it directly with no `cmd.exe /C`
-argument-string assembly involved, and the redirection is ordinary batch-file syntax.
-`--python-preference only-managed` is verified against uv 0.5.11's real
+venv was silently never created. Reproduced locally outside CI to confirm the cause. Moving the
+redirection inside a real `.bat` file removed that quoting hazard -- but invoking the `.bat` file
+directly as the `[Run]` entry's `Filename` introduced a *third* failure, also confirmed live: Inno's
+plain `Exec` calls Win32's `CreateProcess`, which does not support a `.bat`/`.cmd` file as the
+application image directly (only APIs with their own `.bat` special-casing, like .NET's
+`Process.Start`, handle that -- which is why local testing with `Process.Start` looked fine while
+CI hung for the full 8-minute step timeout with zero output). The actual fix wraps the `.bat` in
+`cmd.exe /C "path"` with a single quoted argument and no redirection at that outer level -- the
+standard, documented-safe way to launch a batch file from a raw `CreateProcess`-based caller. The
+redirection itself still lives entirely inside the `.bat`, so there's still no output pipe for
+Inno's `Exec` to fail to drain. `--python-preference only-managed` is verified against uv 0.5.11's real
 [`PythonPreference` enum](https://github.com/astral-sh/uv/blob/0.5.11/crates/uv-python/src/discovery.rs)
 -- it forces uv to provision its own downloaded Python 3.12 rather than opportunistically using a
 system Python if one happens to be present. The Windows CI smoke test proves this, not just the

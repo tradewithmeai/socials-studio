@@ -133,11 +133,21 @@ end;
 ; redirection, and fails instantly with "The filename, directory name, or
 ; volume label syntax is incorrect" -- before uv ever runs, and without
 ; Inno surfacing that error anywhere. Confirmed live, reproduced locally.
-; A real .bat file sidesteps this entirely: CreateProcess launches it
-; directly, no cmd.exe /C argument-string assembly involved, and the
-; redirection lives in ordinary batch-file syntax instead. See
-; {app}\_setup-python.log if Socials Studio doesn't work after install.
-Filename: "{app}\setup-python.bat"; \
+; Moving the redirection inside a real .bat file removed that quoting
+; hazard, but invoking the .bat as this entry's bare Filename introduced a
+; *third* failure: CreateProcess (which Inno's plain Exec calls) does not
+; support a .bat/.cmd file as the application image directly -- only APIs
+; with their own .bat special-casing (e.g. .NET's Process.Start, which is
+; why local testing looked fine) handle that. Confirmed live: this exact
+; setup hung the CI job for the full 8-minute step timeout with zero
+; output. The fix below is the standard, documented-safe way to launch a
+; batch file from a raw CreateProcess-based API: wrap it in `cmd.exe /C
+; "path"` with a single quoted argument and no redirection at this outer
+; level -- the redirection stays inside the .bat, so there's still no pipe
+; for Inno's Exec to fail to drain. See {app}\_setup-python.log if Socials
+; Studio doesn't work after install.
+Filename: "{sys}\cmd.exe"; \
+    Parameters: "/C ""{app}\setup-python.bat"""; \
     WorkingDir: "{app}"; \
     StatusMsg: "Setting up Socials Studio's Python environment..."; \
     Flags: runhidden waituntilterminated

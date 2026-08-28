@@ -66,13 +66,17 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
   introduced a *different* silent failure, because cmd.exe's `/C` argument parser mishandles a
   command line that both starts with a quoted path and contains a `>` redirection -- it failed
   instantly with "The filename, directory name, or volume label syntax is incorrect" before `uv`
-  ever ran, and Inno Setup surfaced no error for it. The actual fix: a small bundled script,
-  `installer/windows/setup-python.bat`, runs both `uv` calls with the redirection written as
-  ordinary batch-file syntax, and `setup.iss`'s `[Run]` entry calls it directly with no `cmd.exe /C`
-  argument-string assembly at all. The "Smoke test -- silent install" step prints
-  `_setup-python.log`'s contents if the expected files are still missing. Also added
-  `timeout-minutes` to every Windows step that can plausibly hang, so a future regression fails
-  cleanly within minutes instead of running for hours unnoticed.
+  ever ran, and Inno Setup surfaced no error for it. Moving the redirection into a real bundled
+  script, `installer/windows/setup-python.bat`, removed that quoting hazard -- but calling that
+  `.bat` directly as the `[Run]` entry's `Filename` hit a *third*, also live-confirmed failure: Inno's
+  plain `Exec` calls Win32's `CreateProcess`, which doesn't support a `.bat`/`.cmd` file as the
+  application image directly, and the CI job hung for the full 8-minute step timeout with zero
+  output. The actual fix: `setup.iss`'s `[Run]` entry now wraps the script in `cmd.exe /C "path"`
+  with a single quoted argument and no redirection at that outer level -- the redirection stays
+  inside the `.bat` itself. The "Smoke test -- silent install" step prints `_setup-python.log`'s
+  contents if the expected files are still missing. Also added `timeout-minutes` to every Windows
+  step that can plausibly hang, so a future regression fails cleanly within minutes instead of
+  running for hours unnoticed.
 - **macOS/Linux CI smoke tests no longer mask failures.** Removed every `|| true` on the installer
   script invocation and the post-extraction `chmod +x` repair -- the packaged archive must contain
   executable scripts as downloaded (`test -x` now asserts this before running anything), and any
