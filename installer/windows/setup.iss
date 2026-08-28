@@ -146,13 +146,19 @@ var
 // worked. On failure: shows an error box pointing at _setup-python.log when
 // running with a visible wizard (never in a silent/unattended install --
 // gated on WizardSilent so this can never block a CI/silent run waiting for
-// a click nothing will ever provide), then raises a script exception so
-// Setup itself reports a genuine failure (non-zero exit code), not a
-// falsely "successful" one. PythonSetupSucceeded() gates both the direct
-// call to RunBootstrapPy below and the Check: on the Claude-offer/
-// launch-offer [Run] entries -- an independent second line of defense that
-// guarantees none of them run after a failure even if that exception
-// somehow didn't stop Setup outright.
+// a click nothing will ever provide).
+//
+// This used to also call RaiseException here, on the assumption that an
+// uncaught script exception would make Setup itself exit with a non-zero
+// code. Confirmed live that it doesn't, at least under
+// /VERYSILENT /SUPPRESSMSGBOXES: the CI failure-path smoke test showed
+// bootstrap.py correctly never ran, .first-run-pending correctly never got
+// created, and profiles/ was correctly untouched -- but Setup's own exit
+// code was still 0. Making Setup report a genuine, non-zero exit code needs
+// the actual documented mechanism for exactly that: GetCustomSetupExitCode
+// below, which Setup calls specifically when it would otherwise report
+// success, letting script code override the exit code without relying on
+// exception-propagation behaviour that's undocumented for this event.
 procedure RunPythonSetup();
 var
   ResultCode: Integer;
@@ -171,10 +177,21 @@ begin
         'Socials Studio could not finish setting up its Python environment.' + #13#10 +
         'See ' + LogPath + ' for details, then run this installer again.',
         mbCriticalError, MB_OK);
-    RaiseException(
-      'Socials Studio setup failed: could not create its Python environment ' +
-      'or install its dependencies. See ' + LogPath + ' for details.');
   end;
+end;
+
+// Setup calls this specifically when it would otherwise report success
+// (exit code 0) -- the documented way to make Setup report a genuine
+// failure from script code without relying on exception-propagation
+// behaviour. See RunPythonSetup's comment above for why this replaced an
+// earlier RaiseException-based attempt that compiled and ran but didn't
+// actually change Setup's own exit code.
+function GetCustomSetupExitCode(): Integer;
+begin
+  if PythonSetupFailed then
+    Result := 5
+  else
+    Result := 0;
 end;
 
 // Used by the [Run] "Install Claude Code" and "Launch Socials Studio now"

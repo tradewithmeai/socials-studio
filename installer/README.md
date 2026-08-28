@@ -79,8 +79,16 @@ skip a later one. `setup.iss` therefore runs `setup-python.bat` from `[Code]`'s
 `CurStepChanged(ssPostInstall)` as a real `Exec()` call (`RunPythonSetup`), not a declarative
 `[Run]` entry, specifically so its `ResultCode` can be read: on failure, it shows an error box
 naming `_setup-python.log` when a wizard is actually visible (gated on `WizardSilent()`, so this
-can never block a CI/silent run waiting for a click nothing would ever provide) and raises a script
-exception so Setup itself reports genuine failure, not a false success. `bootstrap.py` is *also*
+can never block a CI/silent run waiting for a click nothing would ever provide). Making Setup's own
+*exit code* report a genuine failure needed a second, dedicated mechanism: an earlier version raised
+a script exception here on the assumption that an uncaught exception would itself make Setup exit
+non-zero -- confirmed live that it doesn't, at least under `/VERYSILENT /SUPPRESSMSGBOXES`: the
+failure-path CI test (below) showed every functional guarantee held (`bootstrap.py` never ran,
+`.first-run-pending` never got created, `profiles/` stayed untouched) while Setup's own exit code
+was still 0. `setup.iss` now implements `GetCustomSetupExitCode()`, the function Setup calls
+specifically when it would otherwise report success, to return a non-zero code when
+`PythonSetupFailed` is set -- the documented mechanism for exactly this, rather than relying on
+exception-propagation behaviour undocumented for this event. `bootstrap.py` is *also*
 called directly from `[Code]` (`RunBootstrapPy`), sequenced explicitly after `RunPythonSetup`
 succeeds -- not left as a declarative `[Run]` entry gated on a `Check:` function, which was the
 first attempt and turned out to be wrong: regular (non-`postinstall`) `[Run]` entries execute

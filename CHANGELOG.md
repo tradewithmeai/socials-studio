@@ -99,9 +99,9 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
   documented way to inspect a previous entry's exit code at all, so a non-zero `setup-python.bat`
   wouldn't have stopped anything downstream regardless. `setup.iss` now runs `setup-python.bat` from
   `[Code]`'s `CurStepChanged(ssPostInstall)` as a real `Exec()` call instead of a declarative `[Run]`
-  entry, checks its `ResultCode`, shows an error box pointing at `_setup-python.log` when a wizard is
-  actually visible (never during a silent/CI install -- gated on `WizardSilent()`), and raises a
-  script exception so Setup reports genuine failure. A *third* real bug surfaced here too:
+  entry, checks its `ResultCode`, and shows an error box pointing at `_setup-python.log` when a
+  wizard is actually visible (never during a silent/CI install -- gated on `WizardSilent()`). A
+  *third* real bug surfaced here too:
   `bootstrap.py`'s invocation was first changed to a declarative `[Run]` entry gated on a
   `PythonSetupSucceeded()` `Check:`, on the assumption that `Check:` would skip it if
   `RunPythonSetup` (running from the same `CurStepChanged(ssPostInstall)`) had already flagged
@@ -112,10 +112,18 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
   written even on a fully successful Python setup. Fixed by calling `bootstrap.py` directly from
   `[Code]` too (`RunBootstrapPy`), sequenced explicitly after `RunPythonSetup` succeeds. The Claude
   Code offer and "Launch Socials Studio now" -- which genuinely do run later, on the finish page --
-  keep their `PythonSetupSucceeded()` `Check:` as an independent second line of defense. A new CI
-  smoke test builds a second installer with a deliberately-broken `requirements.txt` and proves,
-  against the real packaged installer: it reports failure (non-zero exit code), never writes
-  `.first-run-pending`, and leaves existing `profiles/` data untouched.
+  keep their `PythonSetupSucceeded()` `Check:` as an independent second line of defense. A
+  *fourth* real bug: making Setup's own exit code non-zero on failure needed a dedicated
+  mechanism -- an earlier attempt raised a script exception in `RunPythonSetup`, assuming an
+  uncaught exception would itself make Setup exit non-zero. Confirmed live that it doesn't, at
+  least under `/VERYSILENT /SUPPRESSMSGBOXES`: the new failure-path CI smoke test (below) showed
+  every functional guarantee held -- `bootstrap.py` never ran, `.first-run-pending` never got
+  created, `profiles/` stayed untouched -- while Setup's own exit code was still 0. Fixed with
+  `GetCustomSetupExitCode()`, the function Setup calls specifically when it would otherwise report
+  success, to return a non-zero code when Python setup failed -- the documented mechanism for
+  exactly this. A new CI smoke test builds a second installer with a deliberately-broken
+  `requirements.txt` and proves, against the real packaged installer: it reports failure (non-zero
+  exit code), never writes `.first-run-pending`, and leaves existing `profiles/` data untouched.
 - **macOS/Linux CI smoke tests no longer mask failures.** Removed every `|| true` on the installer
   script invocation and the post-extraction `chmod +x` repair -- the packaged archive must contain
   executable scripts as downloaded (`test -x` now asserts this before running anything), and any
