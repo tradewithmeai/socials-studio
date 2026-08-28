@@ -147,10 +147,16 @@ Filename: "{app}\.venv\Scripts\python.exe"; \
 ; available; otherwise falls back to Anthropic's official PowerShell
 ; installer. Never redistributes Claude Code itself -- only invokes
 ; Anthropic's own installers, and only after this explicit opt-in.
+; `skipifsilent` guarantees this never runs during a silent/unattended
+; install (e.g. the CI smoke test's /VERYSILENT run) -- confirmed live: an
+; earlier version without this flag caused the CI job to hang, consistent
+; with Inno Setup running a "postinstall" entry by default in silent mode
+; unless skipifsilent says otherwise. CI must never attempt a real Claude
+; Code install; this flag is what enforces that, not just documentation.
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
     Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""if (Get-Command winget -ErrorAction SilentlyContinue) {{ winget install --id Anthropic.ClaudeCode -e --accept-source-agreements --accept-package-agreements }} else {{ irm https://claude.ai/install.ps1 | iex }}"""; \
     Description: "Install Claude Code now (via WinGet, or Anthropic's official installer if WinGet isn't available) -- required to use Socials Studio"; \
-    Flags: postinstall shellexec unchecked; \
+    Flags: postinstall shellexec unchecked skipifsilent; \
     Check: ClaudeCodeMissing
 
 Filename: "{app}\launch.bat"; Description: "Launch Socials Studio now"; Flags: postinstall nowait skipifsilent unchecked
