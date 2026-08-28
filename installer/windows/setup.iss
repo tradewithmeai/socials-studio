@@ -117,15 +117,25 @@ end;
 ; https://github.com/astral-sh/uv/blob/0.5.11/crates/uv-python/src/discovery.rs
 ; ("only-managed": "Only use managed Python installations; never use system
 ; Python installations.") -- not guessed. No system Python is required.
-Filename: "{app}\_bootstrap-uv\uv.exe"; \
-    Parameters: "venv --python 3.12 --python-preference only-managed ""{app}\.venv"""; \
+;
+; Routed through cmd.exe with output redirected to NUL. Confirmed live: run
+; directly, uv provisions a managed Python in seconds -- but run exactly the
+; same way through Inno Setup's plain Exec (no redirection), the CI job
+; hung indefinitely. uv writes a live-updating progress display while
+; downloading; Inno's Exec doesn't drain the child process's output pipes,
+; so once uv's writes fill the OS pipe buffer it blocks forever waiting for
+; a reader that will never come. Redirecting to NUL removes the pipe
+; entirely -- there's nothing to fill.
+Filename: "{sys}\cmd.exe"; \
+    Parameters: "/C ""{app}\_bootstrap-uv\uv.exe"" venv --python 3.12 --python-preference only-managed ""{app}\.venv"" >NUL 2>&1"; \
     WorkingDir: "{app}"; \
     StatusMsg: "Setting up Socials Studio's Python environment..."; \
     Flags: runhidden waituntilterminated
 
 ; Step 2: uv installs requirements.txt into that same managed-Python venv.
-Filename: "{app}\_bootstrap-uv\uv.exe"; \
-    Parameters: "pip install --python ""{app}\.venv\Scripts\python.exe"" -r ""{app}\requirements.txt"""; \
+; Same NUL-redirection reasoning as Step 1.
+Filename: "{sys}\cmd.exe"; \
+    Parameters: "/C ""{app}\_bootstrap-uv\uv.exe"" pip install --python ""{app}\.venv\Scripts\python.exe"" -r ""{app}\requirements.txt"" >NUL 2>&1"; \
     WorkingDir: "{app}"; \
     StatusMsg: "Installing dependencies..."; \
     Flags: runhidden waituntilterminated

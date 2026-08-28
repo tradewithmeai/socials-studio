@@ -52,6 +52,17 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
   runner's own pre-installed Python, confirming the venv's python reports `3.12.x`, and confirming
   a real dependency (`playwright`) imports -- both after the first install and again after a
   reinstall.
+- **Fixed a real hang: `uv`'s output pipe filling up blocked it forever when run through Inno
+  Setup's `[Run]` mechanism.** Caught live, twice, by the Windows CI smoke test genuinely hanging
+  for 9+ minutes with zero progress. A direct diagnostic step (added permanently -- see
+  `.github/workflows/build-installers.yml`) proved `uv venv --python 3.12 --python-preference
+  only-managed` completes in seconds when run on its own; the same command via Inno Setup's Exec
+  never returned. Root cause: `uv` writes a live-updating progress display while downloading, and
+  Inno Setup's `[Run]` entries don't drain a child process's output pipes -- once uv's writes fill
+  the OS pipe buffer, it blocks indefinitely waiting for a reader that never comes. `setup.iss`'s
+  two `uv` `[Run]` entries are now routed through `cmd.exe /C ... >NUL 2>&1`, which removes the
+  pipe entirely. Also added `timeout-minutes` to every Windows step that can plausibly hang, so a
+  future regression fails cleanly within minutes instead of running for hours unnoticed.
 - **macOS/Linux CI smoke tests no longer mask failures.** Removed every `|| true` on the installer
   script invocation and the post-extraction `chmod +x` repair -- the packaged archive must contain
   executable scripts as downloaded (`test -x` now asserts this before running anything), and any
