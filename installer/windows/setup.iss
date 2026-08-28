@@ -148,7 +148,7 @@ Filename: "{app}\.venv\Scripts\python.exe"; \
 ; installer. Never redistributes Claude Code itself -- only invokes
 ; Anthropic's own installers, and only after this explicit opt-in.
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
-    Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""if (Get-Command winget -ErrorAction SilentlyContinue) { winget install --id Anthropic.ClaudeCode -e --accept-source-agreements --accept-package-agreements } else { irm https://claude.ai/install.ps1 | iex }"""; \
+    Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""if (Get-Command winget -ErrorAction SilentlyContinue) {{ winget install --id Anthropic.ClaudeCode -e --accept-source-agreements --accept-package-agreements }} else {{ irm https://claude.ai/install.ps1 | iex }}"""; \
     Description: "Install Claude Code now (via WinGet, or Anthropic's official installer if WinGet isn't available) -- required to use Socials Studio"; \
     Flags: postinstall shellexec unchecked; \
     Check: ClaudeCodeMissing
