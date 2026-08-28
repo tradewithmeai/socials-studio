@@ -72,11 +72,32 @@ jobs:
           $uvPath = (Get-Command uv).Source
           Copy-Item -Force $uvPath payload-uv/uv.exe
 
+      # Runs the exact `uv venv --python 3.12 --python-preference only-managed`
+      # command the packaged installer uses, but directly -- not wrapped in
+      # Inno Setup's hidden [Run] entry -- with full output streamed to this
+      # log and a hard timeout. This isolates whether uv's managed-Python
+      # download itself is slow/network-bound (expected to show real
+      # progress here) from whether something about Inno Setup's Exec
+      # mechanism is the problem (e.g. an unread output pipe filling up and
+      # blocking the child process -- a known class of issue when a parent
+      # launches a subprocess without draining its stdout/stderr).
+      - name: Diagnostic -- uv managed-Python provisioning, run directly
+        shell: pwsh
+        timeout-minutes: 6
+        run: |
+          $diagVenv = "$env:RUNNER_TEMP\uv-diagnostic-venv"
+          Write-Host "Running: uv venv --python 3.12 --python-preference only-managed $diagVenv"
+          & payload-uv\uv.exe venv --python 3.12 --python-preference only-managed $diagVenv
+          if ($LASTEXITCODE -ne 0) { throw "uv venv failed with exit code $LASTEXITCODE" }
+          & "$diagVenv\Scripts\python.exe" --version
+          Write-Host "OK: uv provisioned a managed Python directly, outside Inno Setup, without hanging."
+
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
 
       - name: Build Socials-Studio-Setup.exe
         shell: cmd
+        timeout-minutes: 5
         run: |
           "C:\Program Files (x86)\Inno Setup 6\iscc.exe" installer\windows\setup.iss
 
@@ -97,6 +118,7 @@ jobs:
 
       - name: Smoke test -- silent install
         shell: pwsh
+        timeout-minutes: 8
         run: |
           $installDir = "$env:RUNNER_TEMP\ss-install"
           Start-Process -FilePath "dist\Socials-Studio-Setup.exe" `
@@ -122,6 +144,7 @@ jobs:
 
       - name: Smoke test -- prove the venv is a uv-*managed* Python 3.12, not the runner's own
         shell: pwsh
+        timeout-minutes: 3
         run: |
           $installDir = "$env:RUNNER_TEMP\ss-install"
 
@@ -159,6 +182,7 @@ jobs:
 
       - name: Smoke test -- reinstall preserves profiles/ and the venv still works
         shell: pwsh
+        timeout-minutes: 8
         run: |
           $installDir = "$env:RUNNER_TEMP\ss-install"
           $profileFile = "$installDir\profiles\fake-session\storage_state.json"
