@@ -101,12 +101,21 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
   `[Code]`'s `CurStepChanged(ssPostInstall)` as a real `Exec()` call instead of a declarative `[Run]`
   entry, checks its `ResultCode`, shows an error box pointing at `_setup-python.log` when a wizard is
   actually visible (never during a silent/CI install -- gated on `WizardSilent()`), and raises a
-  script exception so Setup reports genuine failure. `bootstrap.py`, the Claude Code offer, and
-  "Launch Socials Studio now" all gained a `PythonSetupSucceeded()` `Check:` as an independent second
-  line of defense, so none of them ever runs after a failed Python setup. A new CI smoke test builds
-  a second installer with a deliberately-broken `requirements.txt` and proves, against the real
-  packaged installer: it reports failure (non-zero exit code), never writes `.first-run-pending`,
-  and leaves existing `profiles/` data untouched.
+  script exception so Setup reports genuine failure. A *third* real bug surfaced here too:
+  `bootstrap.py`'s invocation was first changed to a declarative `[Run]` entry gated on a
+  `PythonSetupSucceeded()` `Check:`, on the assumption that `Check:` would skip it if
+  `RunPythonSetup` (running from the same `CurStepChanged(ssPostInstall)`) had already flagged
+  failure. Confirmed live: that's backwards -- regular (non-`postinstall`) `[Run]` entries execute
+  automatically as soon as `[Files]` are staged, *before* `CurStepChanged(ssPostInstall)` fires, so
+  `bootstrap.py`'s entry ran (and could only fail to find a `.venv\Scripts\python.exe` that didn't
+  exist yet) before `RunPythonSetup` ever got to run -- meaning `.first-run-pending` was never
+  written even on a fully successful Python setup. Fixed by calling `bootstrap.py` directly from
+  `[Code]` too (`RunBootstrapPy`), sequenced explicitly after `RunPythonSetup` succeeds. The Claude
+  Code offer and "Launch Socials Studio now" -- which genuinely do run later, on the finish page --
+  keep their `PythonSetupSucceeded()` `Check:` as an independent second line of defense. A new CI
+  smoke test builds a second installer with a deliberately-broken `requirements.txt` and proves,
+  against the real packaged installer: it reports failure (non-zero exit code), never writes
+  `.first-run-pending`, and leaves existing `profiles/` data untouched.
 - **macOS/Linux CI smoke tests no longer mask failures.** Removed every `|| true` on the installer
   script invocation and the post-extraction `chmod +x` repair -- the packaged archive must contain
   executable scripts as downloaded (`test -x` now asserts this before running anything), and any

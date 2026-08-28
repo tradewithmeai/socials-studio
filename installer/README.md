@@ -80,16 +80,25 @@ skip a later one. `setup.iss` therefore runs `setup-python.bat` from `[Code]`'s
 `[Run]` entry, specifically so its `ResultCode` can be read: on failure, it shows an error box
 naming `_setup-python.log` when a wizard is actually visible (gated on `WizardSilent()`, so this
 can never block a CI/silent run waiting for a click nothing would ever provide) and raises a script
-exception so Setup itself reports genuine failure, not a false success. A `PythonSetupSucceeded()`
-`Check:` on the `bootstrap.py`, "Install Claude Code", and "Launch Socials Studio now" `[Run]`
-entries is the independent second line of defense -- none of them ever runs after a failed Python
-setup, regardless of exactly how Setup's own script-exception handling behaves for the exact event
-this runs from (documented clearly only for a couple of specific event functions, `ssPostInstall`
-not among them). A dedicated CI smoke test builds a second installer with a deliberately-broken
-`requirements.txt` (naming a package that cannot exist) and proves, against the real packaged
-installer: the silent install itself reports failure (non-zero exit code), `.first-run-pending`
-never gets created, and existing `profiles/` data is untouched -- see "Smoke test --
-dependency-install failure stops setup cleanly" in `.github/workflows/build-installers.yml`.
+exception so Setup itself reports genuine failure, not a false success. `bootstrap.py` is *also*
+called directly from `[Code]` (`RunBootstrapPy`), sequenced explicitly after `RunPythonSetup`
+succeeds -- not left as a declarative `[Run]` entry gated on a `Check:` function, which was the
+first attempt and turned out to be wrong: regular (non-`postinstall`) `[Run]` entries execute
+automatically as soon as `[Files]` are staged, *before* `CurStepChanged(ssPostInstall)` ever fires.
+Confirmed live: with that design, `bootstrap.py`'s entry ran (and could only fail to find
+`{app}\.venv\Scripts\python.exe`, since `RunPythonSetup` hadn't created it yet) before
+`RunPythonSetup` ever got a chance to run -- so `bootstrap.py` silently never executed and
+`.first-run-pending` was never written, *even on a fully successful Python setup*. A
+`PythonSetupSucceeded()` `Check:` on the "Install Claude Code" and "Launch Socials Studio now"
+`[Run]` entries (which genuinely do run later, on the finish page, after `CurStepChanged` has
+already completed) is the independent second line of defense -- neither ever offers/runs after a
+failed Python setup, regardless of exactly how Setup's own script-exception handling behaves for
+the exact event this runs from (documented clearly only for a couple of specific event functions).
+A dedicated CI smoke test builds a second installer with a deliberately-broken `requirements.txt`
+(naming a package that cannot exist) and proves, against the real packaged installer: the silent
+install itself reports failure (non-zero exit code), `.first-run-pending` never gets created, and
+existing `profiles/` data is untouched -- see "Smoke test -- dependency-install failure stops setup
+cleanly" in `.github/workflows/build-installers.yml`.
 
 **macOS and Linux are not fully automatic yet.** `install.sh` on both looks for a system
 `python3.10`+ (checking the real runtime version, not just trusting a `python3.1x`-looking binary

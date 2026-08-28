@@ -148,10 +148,11 @@ var
 // gated on WizardSilent so this can never block a CI/silent run waiting for
 // a click nothing will ever provide), then raises a script exception so
 // Setup itself reports a genuine failure (non-zero exit code), not a
-// falsely "successful" one. PythonSetupSucceeded()'s Check: gates on the
-// [Run] entries below are the second, independent line of defense that
-// guarantees bootstrap.py/Claude-offer/launch-offer never run after a
-// failure even if that exception somehow didn't stop Setup outright.
+// falsely "successful" one. PythonSetupSucceeded() gates both the direct
+// call to RunBootstrapPy below and the Check: on the Claude-offer/
+// launch-offer [Run] entries -- an independent second line of defense that
+// guarantees none of them run after a failure even if that exception
+// somehow didn't stop Setup outright.
 procedure RunPythonSetup();
 var
   ResultCode: Integer;
@@ -176,18 +177,63 @@ begin
   end;
 end;
 
-procedure CurStepChanged(CurStep: TSetupStep);
-begin
-  if CurStep = ssPostInstall then
-    RunPythonSetup();
-end;
-
-// Used by the [Run] "bootstrap.py", "Install Claude Code", and "Launch
-// Socials Studio now" entries' Check: -- all three must be skipped if
-// RunPythonSetup above failed.
+// Used by the [Run] "Install Claude Code" and "Launch Socials Studio now"
+// entries' Check: -- both must be skipped if RunPythonSetup above failed.
 function PythonSetupSucceeded(): Boolean;
 begin
   Result := not PythonSetupFailed;
+end;
+
+// Runs bootstrap.py with the venv's own freshly-created python, handling
+// the rest (Claude Code / Chrome checks, the profiles/ preservation
+// guarantee, and the first-run marker) -- --skip-python-setup because
+// RunPythonSetup already did the venv/dependency work via setup-python.bat.
+// --no-interactive-claude-offer because this runs hidden with no console a
+// human could answer a prompt in -- without it, bootstrap.py's default
+// Claude Code offer calls input() and blocks forever (a hidden-but-open
+// console never reaches EOF, so the existing EOFError handling never
+// triggers). Confirmed live: this hung the CI smoke test for the full step
+// timeout, evidenced by Get-CimInstance Win32_Process showing this exact
+// python.exe still running. Windows's real opt-in for installing Claude
+// Code is the separate finish-page checkbox in [Run] below, not this
+// CLI-style prompt -- see bootstrap.py's module docstring and
+// installer/README.md's "Offering to install Claude Code".
+//
+// This used to be a declarative [Run] entry, gated on a Check:
+// PythonSetupSucceeded function, on the theory that Check: would simply
+// skip it if RunPythonSetup (also run from CurStepChanged(ssPostInstall))
+// had already flagged failure. That's wrong: regular (non-postinstall)
+// [Run] entries execute automatically as soon as Files are staged --
+// *before* CurStepChanged(ssPostInstall) fires, not after. Confirmed live:
+// with that design, this entry ran (and could only fail to find
+// {app}\.venv\Scripts\python.exe, since RunPythonSetup hadn't created it
+// yet) before RunPythonSetup ever got a chance to run, so bootstrap.py
+// silently never executed and .first-run-pending was never written, even
+// on a fully successful Python setup. Calling it directly from Pascal,
+// sequenced explicitly after RunPythonSetup succeeds, is the fix -- see
+// CurStepChanged below. bootstrap.py's own exit code (e.g. a normal
+// "Claude Code not found yet" outcome) is deliberately not treated as a
+// setup failure here -- that's an expected, non-fatal state reported by
+// bootstrap.py itself and offered separately via the checkbox below, not
+// something this installer aborts over.
+procedure RunBootstrapPy();
+var
+  ResultCode: Integer;
+begin
+  Exec(ExpandConstant('{app}\.venv\Scripts\python.exe'),
+    '"' + ExpandConstant('{app}\installer\bootstrap.py') + '" --project-dir "' +
+    ExpandConstant('{app}') + '" --skip-python-setup --no-interactive-claude-offer',
+    ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+  begin
+    RunPythonSetup();
+    if PythonSetupSucceeded() then
+      RunBootstrapPy();
+  end;
 end;
 
 function ShouldOfferClaudeInstall(): Boolean;
@@ -196,30 +242,16 @@ begin
 end;
 
 [Run]
-; Step 1: bootstrap.py, run with the venv's own python, handles the rest
-; (Claude Code / Chrome checks, the profiles/ preservation guarantee, and
-; the first-run marker) -- --skip-python-setup because RunPythonSetup above
-; already did the venv/dependency work via setup-python.bat.
-; --no-interactive-claude-offer because this runs hidden with no console a
-; human could answer a prompt in -- without it, bootstrap.py's default
-; Claude Code offer calls input() and blocks forever (a hidden-but-open
-; console never reaches EOF, so the existing EOFError handling never
-; triggers). Confirmed live: this hung the CI smoke test for the full step
-; timeout, evidenced by Get-CimInstance Win32_Process showing this exact
-; python.exe still running. Windows's real opt-in for installing Claude
-; Code is the separate finish-page checkbox below, not this CLI-style
-; prompt -- see bootstrap.py's module docstring and installer/README.md's
-; "Offering to install Claude Code".
-;
-; Check: PythonSetupSucceeded -- must never run (and so must never create
-; the first-run marker) if setup-python.bat failed. See RunPythonSetup and
-; PythonSetupFailed above.
-Filename: "{app}\.venv\Scripts\python.exe"; \
-    Parameters: """{app}\installer\bootstrap.py"" --project-dir ""{app}"" --skip-python-setup --no-interactive-claude-offer"; \
-    WorkingDir: "{app}"; \
-    StatusMsg: "Checking for Claude Code and Chrome..."; \
-    Flags: runhidden waituntilterminated; \
-    Check: PythonSetupSucceeded
+; setup-python.bat (via RunPythonSetup) and bootstrap.py (via RunBootstrapPy)
+; both run from [Code]'s CurStepChanged(ssPostInstall), not declaratively
+; here -- see the comments on both procedures above for why: RunPythonSetup
+; needs to inspect a real ResultCode (which a [Run] entry can't expose at
+; all), and bootstrap.py's invocation needs to run strictly *after*
+; RunPythonSetup succeeds, which a declarative entry's Check: can't
+; guarantee -- regular [Run] entries execute automatically as soon as Files
+; are staged, before CurStepChanged(ssPostInstall) ever fires, confirmed
+; live to silently skip bootstrap.py (unable to find a venv python.exe that
+; didn't exist yet) even on a fully successful install.
 
 ; Optional, opt-in checkbox on the finish page -- only appears if Claude Code
 ; isn't already found and Python setup succeeded (Check:
