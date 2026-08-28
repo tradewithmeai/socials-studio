@@ -267,9 +267,15 @@
     <p style="font-size:0.92rem;">
       Grab the latest from the
       <a href="https://github.com/tradewithmeai/socials-studio/releases">Releases page</a>. The
-      installer checks for Chrome and Claude Code and finishes by opening a launcher — the first
-      time you run it, Claude introduces itself and offers to walk you through connecting your
-      first platform. It never logs into a social platform or publishes anything during setup.
+      installer checks for Chrome and Claude Code, and offers to install Claude Code for you if
+      it's missing — on Windows, as an unchecked opt-in checkbox on the finish page (WinGet if
+      available, otherwise Anthropic's official installer); on macOS/Linux, as a yes/no prompt.
+      Declining is fine either way — the launcher installs regardless, Claude Code just needs to
+      be installed before you can use it. It finishes by opening a launcher — the first time you
+      run it, Claude introduces itself and offers to walk you through connecting your first
+      platform. It never logs into a social platform or publishes anything during setup, and never
+      bundles or redistributes Claude Code itself — only Anthropic's own official installer, only
+      with your say-so.
       <em>CI builds and smoke-tests all three installers on GitHub's own runners before merge, but
       that isn't the same as a person installing this on real hardware — see the README's testing
       status for exactly what's verified on each platform; none is fully verified yet.</em>

@@ -2,11 +2,19 @@ name: Build installers
 
 # Builds the three installer artifacts (Windows .exe, macOS .zip, Linux
 # .tar.gz) plus SHA256SUMS, then smoke-tests each one on its own OS's GitHub
-# runner: silent/non-interactive install, verify the expected files exist,
-# and verify a reinstall never touches a file under profiles/. These are
-# automated platform tests, not a substitute for a human running the
-# installer on their own machine -- see README.md's Testing status section
-# for the exact, honest label for each platform.
+# runner. These are automated platform tests, not a substitute for a human
+# running the installer on their own machine -- see README.md's Testing
+# status section for the exact, honest label for each platform.
+#
+# Every smoke test treats an unexpected non-zero exit from the installer
+# script as a real failure -- no `|| true`, no post-extraction `chmod`
+# repair. macOS/Linux get a harmless fake `claude` stub on PATH (Chrome is
+# already genuinely present on both runner images) so a clean run produces
+# an unambiguous, fully-successful result, not one that's silently masked
+# by a "Claude Code missing" partial failure. The Windows job additionally
+# proves the installed venv came from uv's own *managed* Python 3.12, not
+# the runner's pre-installed system Python -- see that job's smoke-test
+# steps for exactly how.
 #
 # Runs on: a manual trigger, an `installer-v*` tag push, or -- so installer
 # changes are genuinely built and smoke-tested before merge, not just
@@ -49,7 +57,9 @@ jobs:
       #
       # Pinned to a specific uv release rather than "latest" so a build is
       # reproducible; bump this deliberately (and re-run the smoke test below)
-      # when updating, not silently.
+      # when updating, not silently. setup.iss's `--python-preference
+      # only-managed` flag is verified against this exact version's real
+      # PythonPreference enum -- see setup.iss's [Run] comment.
       - name: Install pinned uv
         uses: astral-sh/setup-uv@v3
         with:
@@ -76,6 +86,15 @@ jobs:
           $hash = Get-FileHash -Algorithm SHA256 dist\Socials-Studio-Setup.exe
           "$($hash.Hash.ToLower())  Socials-Studio-Setup.exe" | Out-File -Encoding ascii dist\Socials-Studio-Setup.exe.sha256
 
+      - name: Record the runner's own system Python, for comparison
+        shell: pwsh
+        run: |
+          $systemPython = (Get-Command python -ErrorAction SilentlyContinue).Source
+          Write-Host "Runner's own system python (if any): $systemPython"
+          if ($systemPython) {
+            echo "SYSTEM_PYTHON=$systemPython" >> $env:GITHUB_ENV
+          }
+
       - name: Smoke test -- silent install
         shell: pwsh
         run: |
@@ -101,7 +120,44 @@ jobs:
           }
           if ($failed) { throw "Smoke test failed: one or more expected files are missing after silent install." }
 
-      - name: Smoke test -- reinstall preserves profiles/
+      - name: Smoke test -- prove the venv is a uv-*managed* Python 3.12, not the runner's own
+        shell: pwsh
+        run: |
+          $installDir = "$env:RUNNER_TEMP\ss-install"
+
+          $pyvenvCfgPath = "$installDir\.venv\pyvenv.cfg"
+          if (-not (Test-Path $pyvenvCfgPath)) { throw "pyvenv.cfg not found -- venv was not created as expected." }
+          $pyvenvCfg = Get-Content $pyvenvCfgPath -Raw
+          Write-Host "----- .venv\pyvenv.cfg -----"
+          Write-Host $pyvenvCfg
+          Write-Host "----------------------------"
+
+          # GitHub-hosted Windows runners keep every pre-installed tool version
+          # (including Python) under a well-known, documented path containing
+          # "hostedtoolcache". If the venv's own config mentions it, uv used the
+          # runner's pre-installed Python instead of provisioning a managed one.
+          if ($pyvenvCfg -match '(?i)hostedtoolcache') {
+            throw "venv's pyvenv.cfg references the runner's own hostedtoolcache Python -- uv used the runner's system Python instead of a managed one."
+          }
+          if ($env:SYSTEM_PYTHON -and ($pyvenvCfg.ToLower().Contains($env:SYSTEM_PYTHON.ToLower()))) {
+            throw "venv's pyvenv.cfg matches the runner's own system python path ($env:SYSTEM_PYTHON) -- uv did not provision a managed Python."
+          }
+          Write-Host "OK: pyvenv.cfg does not reference the runner's hostedtoolcache or system python -- this venv came from a uv-managed Python."
+
+          $venvPythonVersion = & "$installDir\.venv\Scripts\python.exe" --version
+          Write-Host "venv python reports: $venvPythonVersion"
+          if ($venvPythonVersion -notmatch '^Python 3\.12\.') {
+            throw "Expected the managed venv python to report Python 3.12.x, got: $venvPythonVersion"
+          }
+
+          $importCheck = & "$installDir\.venv\Scripts\python.exe" -c "import playwright.sync_api; print('playwright import OK')"
+          Write-Host $importCheck
+          if ($importCheck -notmatch 'playwright import OK') {
+            throw "Dependency import check failed: $importCheck"
+          }
+          Write-Host "OK: venv uses a uv-managed Python 3.12 (not the runner's), and playwright imports successfully."
+
+      - name: Smoke test -- reinstall preserves profiles/ and the venv still works
         shell: pwsh
         run: |
           $installDir = "$env:RUNNER_TEMP\ss-install"
@@ -119,6 +175,16 @@ jobs:
             throw "Smoke test failed: profiles/ file changed after reinstall. Before: $originalContent  After: $afterContent"
           }
           Write-Host "OK: profiles/fake-session/storage_state.json unchanged after reinstall"
+
+          $venvPythonVersionAfter = & "$installDir\.venv\Scripts\python.exe" --version
+          if ($venvPythonVersionAfter -notmatch '^Python 3\.12\.') {
+            throw "After reinstall, expected Python 3.12.x, got: $venvPythonVersionAfter"
+          }
+          $importCheckAfter = & "$installDir\.venv\Scripts\python.exe" -c "import playwright.sync_api; print('playwright import OK')"
+          if ($importCheckAfter -notmatch 'playwright import OK') {
+            throw "After reinstall, dependency import check failed: $importCheckAfter"
+          }
+          Write-Host "OK: venv still reports Python 3.12 and playwright still imports after reinstall."
 
       - uses: actions/upload-artifact@v4
         with:
@@ -143,6 +209,20 @@ jobs:
         run: |
           shasum -a 256 dist/Socials-Studio-macOS.zip > dist/Socials-Studio-macOS.zip.sha256
 
+      # Chrome is already genuinely present on macos-latest -- only Claude
+      # Code is missing (correctly; CI must never install the real thing).
+      # A harmless stub gets an unambiguous, fully-successful smoke-test
+      # result instead of one partially masked by "Claude Code missing".
+      - name: Add a fake claude stub to PATH for an unambiguous result
+        run: |
+          mkdir -p "$RUNNER_TEMP/fake-bin"
+          cat > "$RUNNER_TEMP/fake-bin/claude" <<'EOF'
+          #!/usr/bin/env bash
+          echo "claude 0.0.0-fake (smoke-test stub, not real Claude Code)"
+          EOF
+          chmod +x "$RUNNER_TEMP/fake-bin/claude"
+          echo "$RUNNER_TEMP/fake-bin" >> "$GITHUB_PATH"
+
       - name: Smoke test -- extract and install
         run: |
           set -euo pipefail
@@ -150,11 +230,16 @@ jobs:
           INSTALL_DIR="$RUNNER_TEMP/ss-install"
           mkdir -p "$WORKDIR"
           unzip -q dist/Socials-Studio-macOS.zip -d "$WORKDIR"
-          chmod +x "$WORKDIR/installer/macos/install.sh" "$WORKDIR/installer/macos/SocialsStudio.command"
-          # install.sh itself tolerates bootstrap.py exiting non-zero (Claude
-          # Code missing is a normal first-run state, not a fatal error) --
-          # the `|| true` here is just defense in depth.
-          "$WORKDIR/installer/macos/install.sh" "$INSTALL_DIR" || true
+
+          # The archive must contain executable scripts AS PACKAGED -- no
+          # repair here. If this fails, archive creation or extraction lost
+          # the executable bit; that's a real bug, not something to paper
+          # over inside the smoke test.
+          test -x "$WORKDIR/installer/macos/install.sh"
+          test -x "$WORKDIR/installer/macos/SocialsStudio.command"
+          echo "OK: install.sh and SocialsStudio.command are executable as extracted"
+
+          "$WORKDIR/installer/macos/install.sh" "$INSTALL_DIR"
 
           fail=0
           for f in "$INSTALL_DIR/README.md" "$INSTALL_DIR/.venv/bin/python3" \
@@ -168,6 +253,8 @@ jobs:
           done
           [ "$fail" -eq 0 ] || { echo "Smoke test failed: one or more expected files are missing."; exit 1; }
 
+          "$INSTALL_DIR/.venv/bin/python3" -c "import playwright.sync_api; print('playwright import OK')"
+
       - name: Smoke test -- reinstall preserves profiles/
         run: |
           set -euo pipefail
@@ -177,16 +264,15 @@ jobs:
           mkdir -p "$(dirname "$PROFILE_FILE")"
           echo -n '{"cookies": "fake-not-real-session-data"}' > "$PROFILE_FILE"
 
-          # install.sh itself tolerates bootstrap.py exiting non-zero (Claude
-          # Code missing is a normal first-run state, not a fatal error) --
-          # the `|| true` here is just defense in depth.
-          "$WORKDIR/installer/macos/install.sh" "$INSTALL_DIR" || true
+          "$WORKDIR/installer/macos/install.sh" "$INSTALL_DIR"
 
           if ! diff -q <(echo -n '{"cookies": "fake-not-real-session-data"}') "$PROFILE_FILE" >/dev/null; then
             echo "Smoke test failed: profiles/ file changed after reinstall."
             exit 1
           fi
           echo "OK: profiles/fake-session/storage_state.json unchanged after reinstall"
+
+          "$INSTALL_DIR/.venv/bin/python3" -c "import playwright.sync_api; print('playwright import OK')"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -217,6 +303,20 @@ jobs:
         run: |
           sha256sum dist/Socials-Studio-Linux.tar.gz > dist/Socials-Studio-Linux.tar.gz.sha256
 
+      # Chrome is already genuinely present on ubuntu-24.04 -- only Claude
+      # Code is missing (correctly; CI must never install the real thing).
+      # A harmless stub gets an unambiguous, fully-successful smoke-test
+      # result instead of one partially masked by "Claude Code missing".
+      - name: Add a fake claude stub to PATH for an unambiguous result
+        run: |
+          mkdir -p "$RUNNER_TEMP/fake-bin"
+          cat > "$RUNNER_TEMP/fake-bin/claude" <<'EOF'
+          #!/usr/bin/env bash
+          echo "claude 0.0.0-fake (smoke-test stub, not real Claude Code)"
+          EOF
+          chmod +x "$RUNNER_TEMP/fake-bin/claude"
+          echo "$RUNNER_TEMP/fake-bin" >> "$GITHUB_PATH"
+
       - name: Smoke test -- extract and install
         run: |
           set -euo pipefail
@@ -224,10 +324,16 @@ jobs:
           INSTALL_DIR="$RUNNER_TEMP/ss-install"
           mkdir -p "$WORKDIR"
           tar -xzf dist/Socials-Studio-Linux.tar.gz -C "$WORKDIR"
-          chmod +x "$WORKDIR/installer/linux/install.sh" "$WORKDIR/installer/linux/socials-studio-launch.sh"
-          # See the macOS job's comment on the equivalent line -- install.sh
-          # already tolerates this internally; `|| true` is defense in depth.
-          "$WORKDIR/installer/linux/install.sh" "$INSTALL_DIR" || true
+
+          # The archive must contain executable scripts AS PACKAGED -- no
+          # repair here. If this fails, archive creation or extraction lost
+          # the executable bit; that's a real bug, not something to paper
+          # over inside the smoke test.
+          test -x "$WORKDIR/installer/linux/install.sh"
+          test -x "$WORKDIR/installer/linux/socials-studio-launch.sh"
+          echo "OK: install.sh and socials-studio-launch.sh are executable as extracted"
+
+          "$WORKDIR/installer/linux/install.sh" "$INSTALL_DIR"
 
           fail=0
           for f in "$INSTALL_DIR/README.md" "$INSTALL_DIR/.venv/bin/python3" \
@@ -244,6 +350,8 @@ jobs:
             || { echo "MISSING: desktop entry"; fail=1; }
           [ "$fail" -eq 0 ] || { echo "Smoke test failed: one or more expected files are missing."; exit 1; }
 
+          "$INSTALL_DIR/.venv/bin/python3" -c "import playwright.sync_api; print('playwright import OK')"
+
       - name: Smoke test -- reinstall preserves profiles/
         run: |
           set -euo pipefail
@@ -253,15 +361,15 @@ jobs:
           mkdir -p "$(dirname "$PROFILE_FILE")"
           echo -n '{"cookies": "fake-not-real-session-data"}' > "$PROFILE_FILE"
 
-          # See the macOS job's comment on the equivalent line -- install.sh
-          # already tolerates this internally; `|| true` is defense in depth.
-          "$WORKDIR/installer/linux/install.sh" "$INSTALL_DIR" || true
+          "$WORKDIR/installer/linux/install.sh" "$INSTALL_DIR"
 
           if ! diff -q <(echo -n '{"cookies": "fake-not-real-session-data"}') "$PROFILE_FILE" >/dev/null; then
             echo "Smoke test failed: profiles/ file changed after reinstall."
             exit 1
           fi
           echo "OK: profiles/fake-session/storage_state.json unchanged after reinstall"
+
+          "$INSTALL_DIR/.venv/bin/python3" -c "import playwright.sync_api; print('playwright import OK')"
 
       - uses: actions/upload-artifact@v4
         with:

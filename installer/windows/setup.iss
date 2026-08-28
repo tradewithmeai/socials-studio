@@ -12,26 +12,37 @@
 ;      see the [Files] "profiles\*" exclude below. That's what makes a
 ;      reinstall/upgrade preserve saved logins and OAuth tokens.
 ;   2. Bundles a pinned `uv` binary (see payload-uv\, populated by the CI
-;      build step) to create {app}\.venv and install requirements.txt into
-;      it -- see installer\bootstrap.py's module docstring for why `uv` is
-;      used here instead of Python's official embeddable distribution: the
-;      embeddable distribution ships without `ensurepip`, so it can't
-;      bootstrap pip into a fresh venv. `uv` doesn't have that dependency.
+;      build step) to create {app}\.venv from a uv-*managed* Python 3.12 --
+;      not the machine's own Python, if any -- and install requirements.txt
+;      into it. See installer\bootstrap.py's module docstring for why `uv`
+;      is used here instead of Python's official embeddable distribution:
+;      that distribution ships without `ensurepip`, so it can't bootstrap
+;      pip into a fresh venv. `--python-preference only-managed` is verified
+;      against uv 0.5.11's real PythonPreference enum (see the [Run] comment
+;      below) -- not guessed.
 ;   3. Runs bootstrap.py (using the venv's own freshly-created python, with
 ;      --skip-python-setup, since uv already did that part) to check for
 ;      Claude Code and Chrome and write the first-run marker. Never logs
 ;      into a platform, never launches a publish flow, never collects a
 ;      credential.
-;   4. Creates a Start Menu / Desktop shortcut that opens a terminal in {app}
+;   4. If Claude Code isn't already on PATH, offers an *opt-in checkbox* on
+;      the finish page (unchecked by default, exactly like "Launch Socials
+;      Studio now") to install it via WinGet, or Anthropic's official
+;      PowerShell installer if WinGet isn't available. This never runs
+;      without the user explicitly checking the box and clicking Finish --
+;      see [Code] and the [Run] "Install Claude Code" entry below. This
+;      project never bundles or redistributes Claude Code itself.
+;   5. Creates a Start Menu / Desktop shortcut that opens a terminal in {app}
 ;      and runs `claude` -- see launch.bat.
 ;
 ; This script is built with `iscc setup.iss` by CI using the official
 ; jrsoftware/innosetup toolchain -- see the workflow for exact invocation.
-; The workflow also runs a smoke test: silent install, verify the venv/
-; launcher/marker exist, verify a reinstall doesn't touch profiles/. See
-; the PR for the actual run's result -- an artifact isn't claimed "built"
-; here, only described; whether the build actually succeeded is reported
-; from the real CI run, not asserted in this comment.
+; The workflow also runs a smoke test: silent install, verify the venv was
+; built from a uv-managed Python (not the runner's own), verify a dependency
+; imports, verify the launcher/marker exist, verify a reinstall doesn't
+; touch profiles/. See the PR for the actual run's result -- an artifact
+; isn't claimed "built" here, only described; whether the build actually
+; succeeded is reported from the real CI run, not asserted in this comment.
 
 #define MyAppName "Socials Studio"
 #define MyAppVersion "0.1.0-beta.3"
@@ -85,17 +96,34 @@ Name: "{commondesktop}\Socials Studio"; Filename: "{app}\launch.bat"; WorkingDir
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"
 
+[Code]
+// Used only by the [Run] "Install Claude Code" entry's Check: -- this is a
+// read-only PATH lookup (same idea as `where claude` from a command
+// prompt), never an install action itself. Returns True (offer the
+// checkbox) only when Claude Code genuinely isn't already found.
+function ClaudeCodeMissing(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := not Exec('cmd.exe', '/C where claude >nul 2>nul', '', SW_HIDE,
+    ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0);
+end;
+
 [Run]
-; Step 1: uv provisions {app}\.venv (creating or finding a suitable Python
-; itself -- no system Python required). No login, no publish, no platform
-; contact.
+; Step 1: uv provisions {app}\.venv from its own *managed* Python 3.12 --
+; --python-preference only-managed forces this rather than opportunistically
+; picking up whatever Python (if any) is already on the machine. Verified
+; against uv 0.5.11's real PythonPreference enum:
+; https://github.com/astral-sh/uv/blob/0.5.11/crates/uv-python/src/discovery.rs
+; ("only-managed": "Only use managed Python installations; never use system
+; Python installations.") -- not guessed. No system Python is required.
 Filename: "{app}\_bootstrap-uv\uv.exe"; \
-    Parameters: "venv ""{app}\.venv"""; \
+    Parameters: "venv --python 3.12 --python-preference only-managed ""{app}\.venv"""; \
     WorkingDir: "{app}"; \
     StatusMsg: "Setting up Socials Studio's Python environment..."; \
     Flags: runhidden waituntilterminated
 
-; Step 2: uv installs requirements.txt into that venv.
+; Step 2: uv installs requirements.txt into that same managed-Python venv.
 Filename: "{app}\_bootstrap-uv\uv.exe"; \
     Parameters: "pip install --python ""{app}\.venv\Scripts\python.exe"" -r ""{app}\requirements.txt"""; \
     WorkingDir: "{app}"; \
@@ -111,5 +139,18 @@ Filename: "{app}\.venv\Scripts\python.exe"; \
     WorkingDir: "{app}"; \
     StatusMsg: "Checking for Claude Code and Chrome..."; \
     Flags: runhidden waituntilterminated
+
+; Optional, opt-in checkbox on the finish page -- only appears if Claude Code
+; isn't already found (Check: ClaudeCodeMissing), unchecked by default like
+; "Launch Socials Studio now" below, and only runs if the user checks it and
+; clicks Finish. Prefers WinGet (a native package-manager install) when
+; available; otherwise falls back to Anthropic's official PowerShell
+; installer. Never redistributes Claude Code itself -- only invokes
+; Anthropic's own installers, and only after this explicit opt-in.
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
+    Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""if (Get-Command winget -ErrorAction SilentlyContinue) { winget install --id Anthropic.ClaudeCode -e --accept-source-agreements --accept-package-agreements } else { irm https://claude.ai/install.ps1 | iex }"""; \
+    Description: "Install Claude Code now (via WinGet, or Anthropic's official installer if WinGet isn't available) -- required to use Socials Studio"; \
+    Flags: postinstall shellexec unchecked; \
+    Check: ClaudeCodeMissing
 
 Filename: "{app}\launch.bat"; Description: "Launch Socials Studio now"; Flags: postinstall nowait skipifsilent unchecked

@@ -84,16 +84,39 @@ def find_claude_cli(which: WhichFn = shutil.which) -> str | None:
     return which("claude")
 
 
-def official_claude_install_command(platform_name: str) -> list[str] | None:
-    """The shell command for Anthropic's own official Claude Code installer.
+def official_claude_install_command(
+    platform_name: str, which: WhichFn = shutil.which
+) -> list[str] | None:
+    """The command for Anthropic's own official Claude Code installer.
 
-    Returns None on Windows: the native Windows installer is a browser
-    download, not a scriptable command this installer can safely pipe into a
-    shell -- so Windows always gets a link, not an auto-run command. This
-    project never bundles or redistributes Claude Code itself either way.
+    Verified against Anthropic's current documentation
+    (https://code.claude.com/docs/en/setup) -- these are real, documented
+    install routes, not approximations:
+
+    - macOS/Linux: `curl -fsSL https://claude.ai/install.sh | bash`
+    - Windows, with WinGet available: `winget install Anthropic.ClaudeCode`
+      (preferred -- a native package manager install, not a piped script)
+    - Windows, without WinGet: the official PowerShell installer,
+      `irm https://claude.ai/install.ps1 | iex`
+
+    This project never bundles or redistributes Claude Code itself -- it
+    only offers to invoke Anthropic's own installer, and only ever after
+    explicit user consent (see maybe_offer_claude_install and, for the
+    packaged Windows installer specifically, the graphical opt-in checkbox
+    on setup.iss's finish page).
     """
     if platform_name in ("darwin", "linux"):
         return ["bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"]
+    if platform_name == "win32":
+        if which("winget"):
+            return [
+                "winget", "install", "--id", "Anthropic.ClaudeCode", "-e",
+                "--accept-source-agreements", "--accept-package-agreements",
+            ]
+        return [
+            "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+            "irm https://claude.ai/install.ps1 | iex",
+        ]
     return None
 
 
@@ -102,24 +125,37 @@ def maybe_offer_claude_install(
     platform_name: str,
     confirm: Callable[[str], bool] | None = None,
     run: RunFn = subprocess.run,
+    which: WhichFn = shutil.which,
 ) -> None:
     """If Claude Code is missing, offer to run Anthropic's official installer.
 
     Does nothing if Claude Code was already found. Never runs anything
-    without explicit confirmation, and never on Windows (see
-    official_claude_install_command). This project does not redistribute
-    Claude Code -- it only offers to invoke Anthropic's own installer.
+    without explicit confirmation. This project does not redistribute
+    Claude Code -- it only offers to invoke Anthropic's own installer, and
+    prefers WinGet on Windows when it's available (a native package-manager
+    install) over the PowerShell script.
+
+    On the packaged Windows installer specifically, this CLI-level prompt
+    is not what the user sees (bootstrap.py runs hidden there) -- the real
+    opt-in is a checkbox on the Inno Setup finish page; see setup.iss. This
+    function is still exercised there in `--skip-python-setup` mode for the
+    Chrome/Claude report, and is the real, interactive path for the CLI
+    route (asking Claude Code directly to set the project up) on every
+    platform including Windows.
 
     The default confirm function treats a closed/absent stdin (EOFError) as
-    "no" rather than crashing -- this isn't just a CI concern: any
-    non-interactive invocation (a script, a scheduled task, a piped
-    installer run) has no terminal to read a real answer from, and this
-    setup step must degrade gracefully there, not blow up the rest of the
-    setup report.
+    "no" rather than crashing -- any non-interactive invocation (a script,
+    a scheduled task, a piped installer run) has no terminal to read a real
+    answer from, and this setup step must degrade gracefully there, not
+    blow up the rest of the setup report.
+
+    A failure from the installer command itself (non-zero exit, or the
+    command couldn't even start) is reported, never raised -- this is a
+    best-effort offer, not a step the rest of setup depends on.
     """
     if claude_step.ok:
         return
-    command = official_claude_install_command(platform_name)
+    command = official_claude_install_command(platform_name, which)
     if command is None:
         print(
             "Install Claude Code from https://claude.com/claude-code, sign in with a "
@@ -134,10 +170,36 @@ def maybe_offer_claude_install(
             return False
 
     ask = confirm or _default_confirm
-    if ask("Install Claude Code now using Anthropic's official installer? [y/N] "):
-        run(command)
+    if not ask("Install Claude Code now using Anthropic's official installer? [y/N] "):
+        print(
+            "Skipped. Claude Code is still required to use Socials Studio -- install it "
+            "later from https://claude.com/claude-code. The Socials Studio launcher is "
+            "already installed and will work once Claude Code is."
+        )
+        return
+
+    try:
+        result = run(command, capture_output=True, text=True)
+    except OSError as exc:
+        print(
+            f"Could not run the Claude Code installer ({exc}). Install it yourself from "
+            "https://claude.com/claude-code. The Socials Studio launcher is already installed."
+        )
+        return
+
+    returncode = getattr(result, "returncode", 0)
+    if returncode != 0:
+        stderr = getattr(result, "stderr", "") or ""
+        print(
+            f"The Claude Code installer exited with code {returncode}: {stderr[-400:]}\n"
+            "Install it yourself from https://claude.com/claude-code. The Socials Studio "
+            "launcher is already installed and will work once Claude Code is."
+        )
     else:
-        print("Skipped. Install it later from https://claude.com/claude-code.")
+        print(
+            "Claude Code installer finished. You may need to open a new terminal window "
+            "for `claude` to be on PATH."
+        )
 
 
 def find_chrome(
@@ -242,12 +304,28 @@ def install_requirements(
     return SetupStep("Python dependencies", True, "Installed")
 
 
-def create_virtualenv_with_uv(uv_path: Path, venv_dir: Path, run: RunFn = subprocess.run) -> SetupStep:
+def create_virtualenv_with_uv(
+    uv_path: Path,
+    venv_dir: Path,
+    run: RunFn = subprocess.run,
+    python_version: str | None = None,
+    python_preference: str | None = None,
+) -> SetupStep:
     """Windows path: create .venv using a bundled, pinned `uv` binary instead
     of the stdlib `venv` module. See the module docstring for why -- the
     Windows embeddable Python distribution can't bootstrap pip via
     `ensurepip`, so `uv` (which manages its own Python provisioning and
     doesn't depend on `ensurepip` at all) replaces that step entirely.
+
+    `python_version` (e.g. "3.12") and `python_preference` (e.g.
+    "only-managed", verified against uv 0.5.11's real `PythonPreference` enum
+    at https://github.com/astral-sh/uv/blob/0.5.11/crates/uv-python/src/discovery.rs
+    -- not guessed) let a caller force uv to provision its own managed Python
+    rather than opportunistically using whatever `python` is already on the
+    machine. The packaged Windows installer (setup.iss) passes these
+    directly to the bundled `uv.exe` itself rather than through this
+    function; they're exposed here too so this function stays consistent
+    with that behavior if it's ever invoked directly (e.g. `--uv-path`).
 
     Idempotent, same as create_virtualenv.
     """
@@ -255,7 +333,14 @@ def create_virtualenv_with_uv(uv_path: Path, venv_dir: Path, run: RunFn = subpro
     if existing_python.exists():
         return SetupStep("Python virtual environment (uv)", True, f"Already present at {venv_dir}")
 
-    result = run([str(uv_path), "venv", str(venv_dir)], capture_output=True, text=True)
+    command = [str(uv_path), "venv"]
+    if python_version:
+        command += ["--python", python_version]
+    if python_preference:
+        command += ["--python-preference", python_preference]
+    command.append(str(venv_dir))
+
+    result = run(command, capture_output=True, text=True)
     if result.returncode != 0:
         return SetupStep(
             "Python virtual environment (uv)",
@@ -333,6 +418,8 @@ def run_setup(
     run: RunFn = subprocess.run,
     uv_path: Path | None = None,
     skip_python_setup: bool = False,
+    uv_python_version: str | None = None,
+    uv_python_preference: str | None = None,
 ) -> list[SetupStep]:
     """Run every setup step in order and return the full report.
 
@@ -358,7 +445,13 @@ def run_setup(
 
     if not skip_python_setup:
         if uv_path is not None:
-            steps.append(create_virtualenv_with_uv(uv_path, venv_dir, run))
+            steps.append(
+                create_virtualenv_with_uv(
+                    uv_path, venv_dir, run,
+                    python_version=uv_python_version,
+                    python_preference=uv_python_preference,
+                )
+            )
             steps.append(install_requirements_with_uv(uv_path, venv_dir, project_dir, run))
         else:
             steps.append(create_virtualenv(project_dir, venv_dir))
@@ -382,6 +475,16 @@ def main() -> int:
         action="store_true",
         help="Skip venv creation and dependency install (Windows: already done via uv in [Run])",
     )
+    parser.add_argument(
+        "--uv-python-version",
+        default=None,
+        help="Python version to request from uv (e.g. 3.12) -- only used with --uv-path",
+    )
+    parser.add_argument(
+        "--uv-python-preference",
+        default=None,
+        help="uv --python-preference value (e.g. only-managed) -- only used with --uv-path",
+    )
     args = parser.parse_args()
 
     project_dir = Path(args.project_dir).expanduser().resolve()
@@ -392,7 +495,13 @@ def main() -> int:
     uv_path = Path(args.uv_path).expanduser().resolve() if args.uv_path else None
 
     print(f"Setting up Socials Studio in {project_dir}\n")
-    steps = run_setup(project_dir, uv_path=uv_path, skip_python_setup=args.skip_python_setup)
+    steps = run_setup(
+        project_dir,
+        uv_path=uv_path,
+        skip_python_setup=args.skip_python_setup,
+        uv_python_version=args.uv_python_version,
+        uv_python_preference=args.uv_python_preference,
+    )
     for step in steps:
         print(step)
 

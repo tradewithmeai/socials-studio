@@ -57,10 +57,16 @@ on any platform:
 
 Grab the latest from the [Releases page](https://github.com/tradewithmeai/socials-studio/releases).
 The installer copies the project onto your machine, checks for [Claude Code](https://claude.com/claude-code)
-and Google Chrome (offering to install Claude Code for you if it's missing, on macOS/Linux), and
-prepares the Python environment Socials Studio runs in. It finishes by opening a Socials Studio
-launcher; the first time you run it, Claude introduces itself, explains what it can do, and offers
-to walk you through connecting your first platform.
+and Google Chrome, and prepares the Python environment Socials Studio runs in. If Claude Code
+isn't found, it offers to install it for you -- on Windows, as an unchecked opt-in checkbox on
+the installer's own finish page (via WinGet if available, otherwise Anthropic's official
+installer, and only if you check the box); on macOS/Linux, as a yes/no prompt in the terminal.
+Declining either is fine -- the Socials Studio launcher is installed either way, and Claude Code
+is still required before you can use it. This project never bundles or redistributes Claude Code
+itself; it only offers to run Anthropic's own official installer, and only with your explicit
+say-so. It finishes by opening a Socials Studio launcher; the first time you run it, Claude
+introduces itself, explains what it can do, and offers to walk you through connecting your first
+platform.
 
 You'll still need to sign in to Claude with a qualifying account -- the installer can't do that
 part for you, and it never touches your social media accounts, logs in anywhere, or publishes

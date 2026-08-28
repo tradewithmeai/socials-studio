@@ -173,12 +173,24 @@ def test_official_claude_install_command_mac_and_linux():
     assert bootstrap.official_claude_install_command("linux") == cmd
 
 
-def test_official_claude_install_command_windows_is_none():
-    """Windows never gets an auto-run command -- only a manual download link."""
-    assert bootstrap.official_claude_install_command("win32") is None
+def test_official_claude_install_command_windows_prefers_winget():
+    which = MagicMock(side_effect=lambda name: "C:\\WinGet\\winget.exe" if name == "winget" else None)
+    cmd = bootstrap.official_claude_install_command("win32", which=which)
+    assert cmd is not None
+    assert cmd[0] == "winget"
+    assert "Anthropic.ClaudeCode" in cmd
+
+
+def test_official_claude_install_command_windows_falls_back_to_powershell():
+    which = MagicMock(return_value=None)  # winget not found
+    cmd = bootstrap.official_claude_install_command("win32", which=which)
+    assert cmd is not None
+    assert cmd[0] == "powershell"
+    assert "irm https://claude.ai/install.ps1 | iex" in " ".join(cmd)
 
 
 def test_maybe_offer_claude_install_skips_when_already_found():
+    """Claude already installed -- no offer at all."""
     step = bootstrap.SetupStep("Claude Code CLI", True, "/usr/bin/claude")
     confirm = MagicMock()
     run = MagicMock()
@@ -187,25 +199,59 @@ def test_maybe_offer_claude_install_skips_when_already_found():
     run.assert_not_called()
 
 
-def test_maybe_offer_claude_install_runs_only_after_explicit_yes():
+def test_maybe_offer_claude_install_declined_runs_nothing():
+    """Claude missing, user declines -- no install command runs, launcher
+    message still reassures the user it's already installed."""
     step = bootstrap.SetupStep("Claude Code CLI", False, "missing")
     run = MagicMock()
-
     bootstrap.maybe_offer_claude_install(step, "darwin", confirm=lambda _: False, run=run)
     run.assert_not_called()
 
+
+def test_maybe_offer_claude_install_accepted_runs_command_macos_linux():
+    step = bootstrap.SetupStep("Claude Code CLI", False, "missing")
+    run = MagicMock(return_value=MagicMock(returncode=0, stderr=""))
     bootstrap.maybe_offer_claude_install(step, "darwin", confirm=lambda _: True, run=run)
     run.assert_called_once()
     assert "curl" in " ".join(run.call_args[0][0])
 
 
-def test_maybe_offer_claude_install_never_runs_on_windows():
+def test_maybe_offer_claude_install_accepted_runs_winget_on_windows():
     step = bootstrap.SetupStep("Claude Code CLI", False, "missing")
-    confirm = MagicMock()
-    run = MagicMock()
-    bootstrap.maybe_offer_claude_install(step, "win32", confirm=confirm, run=run)
-    confirm.assert_not_called()
-    run.assert_not_called()
+    which = MagicMock(return_value="C:\\WinGet\\winget.exe")
+    run = MagicMock(return_value=MagicMock(returncode=0, stderr=""))
+    bootstrap.maybe_offer_claude_install(step, "win32", confirm=lambda _: True, run=run, which=which)
+    run.assert_called_once()
+    assert run.call_args[0][0][0] == "winget"
+
+
+def test_maybe_offer_claude_install_accepted_runs_powershell_fallback_on_windows():
+    step = bootstrap.SetupStep("Claude Code CLI", False, "missing")
+    which = MagicMock(return_value=None)
+    run = MagicMock(return_value=MagicMock(returncode=0, stderr=""))
+    bootstrap.maybe_offer_claude_install(step, "win32", confirm=lambda _: True, run=run, which=which)
+    run.assert_called_once()
+    assert run.call_args[0][0][0] == "powershell"
+
+
+def test_maybe_offer_claude_install_handles_installer_failure_without_raising():
+    """The official installer itself can fail (non-zero exit) -- this must be
+    reported, never raised, and must not be mistaken for the confirm/decline
+    path not running anything."""
+    step = bootstrap.SetupStep("Claude Code CLI", False, "missing")
+    run = MagicMock(return_value=MagicMock(returncode=1, stderr="network error"))
+    # Must not raise.
+    bootstrap.maybe_offer_claude_install(step, "darwin", confirm=lambda _: True, run=run)
+    run.assert_called_once()
+
+
+def test_maybe_offer_claude_install_handles_installer_crash_without_raising():
+    """The command itself might not even be runnable (e.g. bash missing) --
+    an OSError from subprocess.run must also be caught, not propagated."""
+    step = bootstrap.SetupStep("Claude Code CLI", False, "missing")
+    run = MagicMock(side_effect=OSError("not found"))
+    # Must not raise.
+    bootstrap.maybe_offer_claude_install(step, "darwin", confirm=lambda _: True, run=run)
 
 
 def test_maybe_offer_claude_install_default_confirm_handles_closed_stdin():
@@ -213,7 +259,8 @@ def test_maybe_offer_claude_install_default_confirm_handles_closed_stdin():
     caught live by the Linux/macOS CI smoke tests, which run non-interactively)
     must not crash with EOFError when no explicit `confirm` callable is given.
     The default confirm function should treat EOF as "no" and let setup
-    finish reporting its other steps."""
+    finish reporting its other steps. This also confirms no install command
+    runs without explicit consent -- a closed stdin defaults to declining."""
     step = bootstrap.SetupStep("Claude Code CLI", False, "missing")
     run = MagicMock()
 
@@ -261,6 +308,27 @@ def test_create_virtualenv_with_uv_runs_uv_venv(tmp_path):
     assert step.ok is True
     called_cmd = run.call_args[0][0]
     assert called_cmd == [str(uv_path), "venv", str(venv_dir)]
+
+
+def test_create_virtualenv_with_uv_requests_managed_python_when_given(tmp_path):
+    """Verified against uv 0.5.11's real PythonPreference enum -- 'only-managed'
+    forces uv to provision its own downloaded Python rather than opportunistically
+    using whatever's already on the machine (see the Windows CI smoke test for
+    the corresponding live proof)."""
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    venv_dir = project_dir / ".venv"
+    uv_path = tmp_path / "uv.exe"
+
+    run = MagicMock(return_value=MagicMock(returncode=0, stderr=""))
+    bootstrap.create_virtualenv_with_uv(
+        uv_path, venv_dir, run=run, python_version="3.12", python_preference="only-managed"
+    )
+
+    called_cmd = run.call_args[0][0]
+    assert called_cmd == [
+        str(uv_path), "venv", "--python", "3.12", "--python-preference", "only-managed", str(venv_dir),
+    ]
 
 
 def test_create_virtualenv_with_uv_reports_failure(tmp_path):

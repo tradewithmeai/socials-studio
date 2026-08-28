@@ -16,9 +16,11 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
   repository source onto disk -- it is not compiled or frozen into an opaque binary, so Claude
   Code retains full access to every skill, Markdown file, and Python module -- then prepares a
   Python virtual environment and installs dependencies. It checks for Claude Code and Google
-  Chrome without installing either silently: on macOS/Linux it offers to run Anthropic's own
-  official Claude Code installer after explicit confirmation; on Windows it links to the download
-  page instead. It never logs into a platform, never publishes anything, and never touches an
+  Chrome without installing either silently: it offers to run Anthropic's own official Claude
+  Code installer after explicit confirmation on every platform (via WinGet on Windows when
+  available, otherwise Anthropic's PowerShell installer -- an opt-in checkbox on the packaged
+  installer's finish page, not an auto-run command). It never logs into a platform, never
+  publishes anything, and never touches an
   existing `profiles/` directory, so a reinstall or upgrade preserves saved logins and OAuth
   tokens. A first-run marker (`.first-run-pending`) tells Claude Code to welcome the user and
   offer guided platform setup on the very first launch only -- see the note in `CLAUDE.md`.
@@ -34,6 +36,30 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
 - `installer/bootstrap.py` gained `--uv-path` and `--skip-python-setup`, and
   `create_virtualenv_with_uv`/`install_requirements_with_uv` alongside the existing
   venv/pip-based functions, so the same script serves both provisioning paths.
+- **Windows now genuinely offers to install Claude Code, not just a link.** Verified against
+  Anthropic's current documentation (https://code.claude.com/docs/en/setup): `winget install
+  Anthropic.ClaudeCode` when WinGet is available, otherwise the official PowerShell installer
+  (`irm https://claude.ai/install.ps1 | iex`). The packaged Windows installer offers this as an
+  unchecked, opt-in checkbox on its finish page (`setup.iss`'s `ClaudeCodeMissing()` check +
+  `[Run]` entry), exactly like the existing "Launch Socials Studio now" checkbox -- it only
+  appears if Claude Code isn't already found, and only runs if the user checks it and clicks
+  Finish. Declining leaves the Socials Studio launcher installed and explains that Claude Code is
+  still required.
+- **Windows' venv now provably comes from uv's own managed Python 3.12, not the machine's.**
+  `uv venv --python 3.12 --python-preference only-managed` -- `only-managed` verified against uv
+  0.5.11's real `PythonPreference` enum, not guessed. The Windows CI smoke test proves this by
+  reading the resulting `.venv\pyvenv.cfg` and confirming it does not reference the GitHub
+  runner's own pre-installed Python, confirming the venv's python reports `3.12.x`, and confirming
+  a real dependency (`playwright`) imports -- both after the first install and again after a
+  reinstall.
+- **macOS/Linux CI smoke tests no longer mask failures.** Removed every `|| true` on the installer
+  script invocation and the post-extraction `chmod +x` repair -- the packaged archive must contain
+  executable scripts as downloaded (`test -x` now asserts this before running anything), and any
+  unexpected non-zero exit from `install.sh` now genuinely fails the test. A harmless fake
+  `claude` stub on `PATH` (Chrome is already present on both runner images) gets an unambiguous,
+  fully-successful result instead of one partially masked by "Claude Code missing." Verification
+  now also runs the installed Python and imports a real dependency, not just checking `.venv`
+  exists.
 - Focused unit tests for the installer's setup logic (`tests/test_installer_bootstrap.py`) --
   fully mocked, no real virtual environment, network call, or `profiles/` access.
 - README and the website got a plain-language pass: the two supported installation routes (ask
