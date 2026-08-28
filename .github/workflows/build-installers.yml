@@ -107,6 +107,25 @@ jobs:
           $hash = Get-FileHash -Algorithm SHA256 dist\Socials-Studio-Setup.exe
           "$($hash.Hash.ToLower())  Socials-Studio-Setup.exe" | Out-File -Encoding ascii dist\Socials-Studio-Setup.exe.sha256
 
+      # A second, separate installer build -- never uploaded as an artifact,
+      # never shipped -- whose bundled requirements.txt names a package that
+      # cannot exist, so `uv pip install` genuinely fails during a real
+      # silent install. Used only by "Smoke test -- dependency-install
+      # failure stops setup cleanly" below, to prove setup.iss's
+      # RunPythonSetup/PythonSetupFailed error handling actually works, not
+      # just that it compiles. OutputBaseFilename is overridden via /D so
+      # this never touches dist\Socials-Studio-Setup.exe or its checksum,
+      # both already produced above.
+      - name: Build failure-path test installer (deliberately-broken requirements.txt)
+        shell: pwsh
+        timeout-minutes: 5
+        run: |
+          Copy-Item payload\requirements.txt payload\requirements.txt.orig
+          "this-package-does-not-exist-ss-failure-path-test==0.0.0" | Set-Content -Encoding ascii payload\requirements.txt
+          & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" /DMyOutputBaseFilename=Socials-Studio-Setup-DepsFailTest installer\windows\setup.iss
+          if ($LASTEXITCODE -ne 0) { throw "iscc failed to build the failure-path test installer (exit code $LASTEXITCODE)" }
+          Move-Item -Force payload\requirements.txt.orig payload\requirements.txt
+
       - name: Record the runner's own system Python, for comparison
         shell: pwsh
         run: |
@@ -248,6 +267,88 @@ jobs:
             throw "After reinstall, dependency import check failed: $importCheckAfter"
           }
           Write-Host "OK: venv still reports Python 3.12 and playwright still imports after reinstall."
+
+      # Uses the deliberately-broken installer built above (bad
+      # requirements.txt) to prove setup.iss's RunPythonSetup/
+      # PythonSetupFailed handling genuinely stops setup on a real
+      # dependency-install failure -- not just that setup-python.bat records
+      # a non-zero exit in its own log, but that Setup itself reports
+      # failure, never runs bootstrap.py, never writes the first-run
+      # marker, and never touches profiles/. Does not touch or weaken the
+      # successful-path smoke tests above -- entirely separate install dir,
+      # entirely separate installer binary.
+      - name: Smoke test -- dependency-install failure stops setup cleanly
+        shell: pwsh
+        timeout-minutes: 6
+        run: |
+          $installDir = "$env:RUNNER_TEMP\ss-install-fail"
+          $profileFile = "$installDir\profiles\fake-session\storage_state.json"
+          New-Item -ItemType Directory -Force -Path (Split-Path $profileFile) | Out-Null
+          $originalContent = '{"cookies": "fake-not-real-session-data"}'
+          Set-Content -Path $profileFile -Value $originalContent -NoNewline
+
+          $proc = Start-Process -FilePath "dist\Socials-Studio-Setup-DepsFailTest.exe" `
+            -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$installDir`"" `
+            -PassThru
+
+          # Same self-polling pattern as the main silent-install smoke test
+          # above -- if RaiseException somehow doesn't stop Setup promptly,
+          # this fails within its own bounded budget with diagnostics,
+          # rather than either hanging for the whole job or silently passing.
+          $deadline = (Get-Date).AddMinutes(4)
+          while (-not $proc.HasExited -and (Get-Date) -lt $deadline) {
+            Start-Sleep -Seconds 5
+          }
+          if (-not $proc.HasExited) {
+            Write-Host "Socials-Studio-Setup-DepsFailTest.exe did not finish within the polling budget -- still running."
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            throw "Failure-path smoke test itself hung waiting for the installer to exit."
+          }
+
+          Write-Host "Installer exit code: $($proc.ExitCode)"
+          $log = "$installDir\_setup-python.log"
+          if (Test-Path $log) {
+            Write-Host "----- $log -----"
+            Get-Content $log | Write-Host
+            Write-Host "----------------"
+          } else {
+            Write-Host "$log does not exist -- setup-python.bat may not have run at all."
+          }
+
+          $failed = $false
+
+          if ($proc.ExitCode -eq 0) {
+            Write-Host "FAIL: installer reported success (exit code 0) despite the broken requirements.txt."
+            $failed = $true
+          } else {
+            Write-Host "OK: installer reported failure (exit code $($proc.ExitCode)), not success."
+          }
+
+          if ((Test-Path $log) -and (Select-String -Path $log -Pattern "uv pip install exit=0" -Quiet)) {
+            Write-Host "FAIL: $log shows uv pip install exit=0, but it should have failed."
+            $failed = $true
+          } else {
+            Write-Host "OK: setup-python.bat's own log does not show a successful uv pip install."
+          }
+
+          if (Test-Path "$installDir\.first-run-pending") {
+            Write-Host "FAIL: .first-run-pending exists -- bootstrap.py ran despite the failed Python setup."
+            $failed = $true
+          } else {
+            Write-Host "OK: .first-run-pending is absent -- bootstrap.py correctly never ran."
+          }
+
+          $afterContent = Get-Content -Path $profileFile -Raw
+          if ($afterContent.Trim() -ne $originalContent.Trim()) {
+            Write-Host "FAIL: profiles/fake-session/storage_state.json changed during the failed install. Before: $originalContent  After: $afterContent"
+            $failed = $true
+          } else {
+            Write-Host "OK: profiles/fake-session/storage_state.json unchanged after the failed install."
+          }
+
+          if ($failed) {
+            throw "Dependency-install failure-path smoke test failed -- see FAIL lines above."
+          }
 
       - uses: actions/upload-artifact@v4
         with:

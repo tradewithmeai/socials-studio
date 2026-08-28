@@ -14,17 +14,22 @@
 ;   2. Bundles a pinned `uv` binary (see payload-uv\, populated by the CI
 ;      build step) to create {app}\.venv from a uv-*managed* Python 3.12 --
 ;      not the machine's own Python, if any -- and install requirements.txt
-;      into it. See installer\bootstrap.py's module docstring for why `uv`
-;      is used here instead of Python's official embeddable distribution:
-;      that distribution ships without `ensurepip`, so it can't bootstrap
-;      pip into a fresh venv. `--python-preference only-managed` is verified
-;      against uv 0.5.11's real PythonPreference enum (see the [Run] comment
-;      below) -- not guessed.
+;      into it, via setup-python.bat. See installer\bootstrap.py's module
+;      docstring for why `uv` is used here instead of Python's official
+;      embeddable distribution: that distribution ships without `ensurepip`,
+;      so it can't bootstrap pip into a fresh venv. `--python-preference
+;      only-managed` is verified against uv 0.5.11's real PythonPreference
+;      enum (see setup-python.bat) -- not guessed. This step runs from
+;      [Code]'s CurStepChanged, not a declarative [Run] entry, specifically
+;      so its exit code can be checked -- see RunPythonSetup below. If it
+;      fails, Setup stops there: it never runs bootstrap.py, never writes
+;      the first-run marker, and never offers to install Claude Code or
+;      launch Socials Studio -- see PythonSetupFailed/PythonSetupSucceeded.
 ;   3. Runs bootstrap.py (using the venv's own freshly-created python, with
-;      --skip-python-setup, since uv already did that part) to check for
-;      Claude Code and Chrome and write the first-run marker. Never logs
-;      into a platform, never launches a publish flow, never collects a
-;      credential.
+;      --skip-python-setup, since step 2 already did that part) to check for
+;      Claude Code and Chrome and write the first-run marker -- only if step
+;      2 succeeded. Never logs into a platform, never launches a publish
+;      flow, never collects a credential.
 ;   4. If Claude Code isn't already on PATH, offers an *opt-in checkbox* on
 ;      the finish page (unchecked by default, exactly like "Launch Socials
 ;      Studio now") to install it via WinGet, or Anthropic's official
@@ -48,6 +53,9 @@
 #define MyAppVersion "0.1.0-beta.3"
 #define MyAppPublisher "Socials Studio (independent, community project)"
 #define MyAppURL "https://github.com/tradewithmeai/socials-studio"
+#ifndef MyOutputBaseFilename
+  #define MyOutputBaseFilename "Socials-Studio-Setup"
+#endif
 
 [Setup]
 AppId={{B4C6C6F0-9F1B-4B7E-9C1E-5B7A0B3B7B3A}
@@ -60,7 +68,11 @@ DefaultDirName={localappdata}\SocialsStudio
 DefaultGroupName=Socials Studio
 DisableProgramGroupPage=yes
 OutputDir=..\..\dist
-OutputBaseFilename=Socials-Studio-Setup
+; Overridable via `iscc /DMyOutputBaseFilename=... setup.iss` -- CI uses this
+; to build a second, deliberately-broken installer for the dependency-install
+; failure-path test without touching the real Socials-Studio-Setup.exe
+; artifact. See .github/workflows/build-installers.yml.
+OutputBaseFilename={#MyOutputBaseFilename}
 Compression=lzma2
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -110,74 +122,113 @@ begin
     ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0);
 end;
 
-[Run]
-; Steps 1-2: setup-python.bat provisions {app}\.venv from uv's own *managed*
-; Python 3.12 (--python-preference only-managed forces this rather than
-; opportunistically picking up whatever Python, if any, is already on the
-; machine -- verified against uv 0.5.11's real PythonPreference enum:
-; https://github.com/astral-sh/uv/blob/0.5.11/crates/uv-python/src/discovery.rs,
-; "only-managed": "Only use managed Python installations; never use system
-; Python installations." -- not guessed, no system Python required), then
-; installs requirements.txt into that same venv. Both uv calls and their
-; output redirection live inside setup-python.bat itself, run as a plain
-; script rather than assembled as a cmd.exe /C Parameters string.
-;
-; That distinction matters and was hard-won: uv writes a live-updating
-; progress display while downloading, and Inno Setup's plain Exec doesn't
-; drain a child process's output pipes, so calling uv directly with no
-; redirection at all hung the CI job indefinitely once the OS pipe buffer
-; filled. Redirecting output removed that hang -- but redirecting via an
-; inline `cmd.exe /C "..." >"...log" 2>&1` Parameters string introduced a
-; second, different failure: cmd.exe's /C argument parser mishandles a
-; command line that both starts with a quoted path and contains a `>`
-; redirection, and fails instantly with "The filename, directory name, or
-; volume label syntax is incorrect" -- before uv ever runs, and without
-; Inno surfacing that error anywhere. Confirmed live, reproduced locally.
-; Moving the redirection inside a real .bat file removed that quoting
-; hazard, but invoking the .bat as this entry's bare Filename introduced a
-; *third* failure: CreateProcess (which Inno's plain Exec calls) does not
-; support a .bat/.cmd file as the application image directly -- only APIs
-; with their own .bat special-casing (e.g. .NET's Process.Start, which is
-; why local testing looked fine) handle that. Confirmed live: this exact
-; setup hung the CI job for the full 8-minute step timeout with zero
-; output. The fix below is the standard, documented-safe way to launch a
-; batch file from a raw CreateProcess-based API: wrap it in `cmd.exe /C
-; "path"` with a single quoted argument and no redirection at this outer
-; level -- the redirection stays inside the .bat, so there's still no pipe
-; for Inno's Exec to fail to drain. See {app}\_setup-python.log if Socials
-; Studio doesn't work after install.
-Filename: "{sys}\cmd.exe"; \
-    Parameters: "/C ""{app}\setup-python.bat"""; \
-    WorkingDir: "{app}"; \
-    StatusMsg: "Setting up Socials Studio's Python environment..."; \
-    Flags: runhidden waituntilterminated
+// Set True only if setup-python.bat (uv venv + uv pip install) fails --
+// see RunPythonSetup below. Declarative [Run] entries have no way to
+// inspect a previous entry's exit code (Inno's own docs on the [Run]
+// section describe only wait-vs-don't-wait behaviour, nothing about
+// ResultCode), so the step that MUST gate everything after it -- do not
+// run bootstrap.py, do not offer to install Claude Code, do not offer to
+// launch Socials Studio -- has to be a real Exec() call in [Code] whose
+// ResultCode we can actually read, not a [Run] entry.
+var
+  PythonSetupFailed: Boolean;
 
-; Step 3: bootstrap.py, run with the venv's own python, handles the rest
+// Runs setup-python.bat (uv venv --python 3.12 --python-preference
+// only-managed, then uv pip install -- see that file's own comments) via
+// the same cmd.exe /C "path" pattern already proven safe for ClaudeCodeMissing
+// above and for the [Run] entries elsewhere in this script: a single quoted
+// argument, no redirection at this outer level (setup-python.bat redirects
+// its own output to {app}\_setup-python.log internally).
+//
+// Called from CurStepChanged(ssPostInstall) below, at the same point in
+// installation where this used to be a declarative [Run] entry -- but now
+// as real Pascal code so PythonSetupFailed can actually reflect whether it
+// worked. On failure: shows an error box pointing at _setup-python.log when
+// running with a visible wizard (never in a silent/unattended install --
+// gated on WizardSilent so this can never block a CI/silent run waiting for
+// a click nothing will ever provide), then raises a script exception so
+// Setup itself reports a genuine failure (non-zero exit code), not a
+// falsely "successful" one. PythonSetupSucceeded()'s Check: gates on the
+// [Run] entries below are the second, independent line of defense that
+// guarantees bootstrap.py/Claude-offer/launch-offer never run after a
+// failure even if that exception somehow didn't stop Setup outright.
+procedure RunPythonSetup();
+var
+  ResultCode: Integer;
+  ScriptPath: String;
+  LogPath: String;
+begin
+  ScriptPath := ExpandConstant('{app}\setup-python.bat');
+  LogPath := ExpandConstant('{app}\_setup-python.log');
+  if (not Exec(ExpandConstant('{sys}\cmd.exe'), '/C "' + ScriptPath + '"',
+        ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode))
+     or (ResultCode <> 0) then
+  begin
+    PythonSetupFailed := True;
+    if not WizardSilent() then
+      MsgBox(
+        'Socials Studio could not finish setting up its Python environment.' + #13#10 +
+        'See ' + LogPath + ' for details, then run this installer again.',
+        mbCriticalError, MB_OK);
+    RaiseException(
+      'Socials Studio setup failed: could not create its Python environment ' +
+      'or install its dependencies. See ' + LogPath + ' for details.');
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+    RunPythonSetup();
+end;
+
+// Used by the [Run] "bootstrap.py", "Install Claude Code", and "Launch
+// Socials Studio now" entries' Check: -- all three must be skipped if
+// RunPythonSetup above failed.
+function PythonSetupSucceeded(): Boolean;
+begin
+  Result := not PythonSetupFailed;
+end;
+
+function ShouldOfferClaudeInstall(): Boolean;
+begin
+  Result := PythonSetupSucceeded() and ClaudeCodeMissing();
+end;
+
+[Run]
+; Step 1: bootstrap.py, run with the venv's own python, handles the rest
 ; (Claude Code / Chrome checks, the profiles/ preservation guarantee, and
-; the first-run marker) -- --skip-python-setup because steps 1-2 already
-; did the venv/dependency work. --no-interactive-claude-offer because this
-; runs hidden with no console a human could answer a prompt in -- without
-; it, bootstrap.py's default Claude Code offer calls input() and blocks
-; forever (a hidden-but-open console never reaches EOF, so the existing
-; EOFError handling never triggers). Confirmed live: this hung the CI
-; smoke test for the full step timeout, evidenced by Get-CimInstance
-; Win32_Process showing this exact python.exe still running. Windows's
-; real opt-in for installing Claude Code is the separate finish-page
-; checkbox below, not this CLI-style prompt -- see bootstrap.py's module
-; docstring and installer/README.md's "Offering to install Claude Code".
+; the first-run marker) -- --skip-python-setup because RunPythonSetup above
+; already did the venv/dependency work via setup-python.bat.
+; --no-interactive-claude-offer because this runs hidden with no console a
+; human could answer a prompt in -- without it, bootstrap.py's default
+; Claude Code offer calls input() and blocks forever (a hidden-but-open
+; console never reaches EOF, so the existing EOFError handling never
+; triggers). Confirmed live: this hung the CI smoke test for the full step
+; timeout, evidenced by Get-CimInstance Win32_Process showing this exact
+; python.exe still running. Windows's real opt-in for installing Claude
+; Code is the separate finish-page checkbox below, not this CLI-style
+; prompt -- see bootstrap.py's module docstring and installer/README.md's
+; "Offering to install Claude Code".
+;
+; Check: PythonSetupSucceeded -- must never run (and so must never create
+; the first-run marker) if setup-python.bat failed. See RunPythonSetup and
+; PythonSetupFailed above.
 Filename: "{app}\.venv\Scripts\python.exe"; \
     Parameters: """{app}\installer\bootstrap.py"" --project-dir ""{app}"" --skip-python-setup --no-interactive-claude-offer"; \
     WorkingDir: "{app}"; \
     StatusMsg: "Checking for Claude Code and Chrome..."; \
-    Flags: runhidden waituntilterminated
+    Flags: runhidden waituntilterminated; \
+    Check: PythonSetupSucceeded
 
 ; Optional, opt-in checkbox on the finish page -- only appears if Claude Code
-; isn't already found (Check: ClaudeCodeMissing), unchecked by default like
-; "Launch Socials Studio now" below, and only runs if the user checks it and
-; clicks Finish. Prefers WinGet (a native package-manager install) when
-; available; otherwise falls back to Anthropic's official PowerShell
-; installer. Never redistributes Claude Code itself -- only invokes
-; Anthropic's own installers, and only after this explicit opt-in.
+; isn't already found and Python setup succeeded (Check:
+; ShouldOfferClaudeInstall), unchecked by default like "Launch Socials
+; Studio now" below, and only runs if the user checks it and clicks Finish.
+; Prefers WinGet (a native package-manager install) when available;
+; otherwise falls back to Anthropic's official PowerShell installer. Never
+; redistributes Claude Code itself -- only invokes Anthropic's own
+; installers, and only after this explicit opt-in.
 ; `skipifsilent` guarantees this never runs during a silent/unattended
 ; install (e.g. the CI smoke test's /VERYSILENT run) -- confirmed live: an
 ; earlier version without this flag caused the CI job to hang, consistent
@@ -188,6 +239,8 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
     Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""if (Get-Command winget -ErrorAction SilentlyContinue) {{ winget install --id Anthropic.ClaudeCode -e --accept-source-agreements --accept-package-agreements }} else {{ irm https://claude.ai/install.ps1 | iex }}"""; \
     Description: "Install Claude Code now (via WinGet, or Anthropic's official installer if WinGet isn't available) -- required to use Socials Studio"; \
     Flags: postinstall shellexec unchecked skipifsilent; \
-    Check: ClaudeCodeMissing
+    Check: ShouldOfferClaudeInstall
 
-Filename: "{app}\launch.bat"; Description: "Launch Socials Studio now"; Flags: postinstall nowait skipifsilent unchecked
+; Check: PythonSetupSucceeded -- never offer to launch Socials Studio after
+; a failed Python setup; the app wouldn't work yet.
+Filename: "{app}\launch.bat"; Description: "Launch Socials Studio now"; Flags: postinstall nowait skipifsilent unchecked; Check: PythonSetupSucceeded

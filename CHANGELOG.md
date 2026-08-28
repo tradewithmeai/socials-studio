@@ -89,6 +89,24 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
   `--no-interactive-claude-offer`, which `setup.iss`'s Step 3 now passes, to skip this prompt
   entirely -- Windows's real, working opt-in for installing Claude Code is the separate finish-page
   checkbox from the bullet above, not this CLI-style stdin prompt.
+- **A failed `uv venv`/`uv pip install` on Windows now genuinely stops setup, instead of silently
+  reporting success.** Two real bugs, found by review rather than a live CI hang this time:
+  `setup-python.bat` only ever checked `uv venv`'s exit code, and even that check was broken --
+  `if errorlevel 1` ran *after* an intervening heartbeat `echo`, so it was checking `echo`'s exit
+  code, not `uv`'s. Fixed by capturing each `uv` call's exit code into a variable immediately after
+  it runs, before anything else touches `%errorlevel%`, and exiting the script with that same
+  non-zero code on failure. That alone wasn't enough, though: Inno Setup's `[Run]` section has no
+  documented way to inspect a previous entry's exit code at all, so a non-zero `setup-python.bat`
+  wouldn't have stopped anything downstream regardless. `setup.iss` now runs `setup-python.bat` from
+  `[Code]`'s `CurStepChanged(ssPostInstall)` as a real `Exec()` call instead of a declarative `[Run]`
+  entry, checks its `ResultCode`, shows an error box pointing at `_setup-python.log` when a wizard is
+  actually visible (never during a silent/CI install -- gated on `WizardSilent()`), and raises a
+  script exception so Setup reports genuine failure. `bootstrap.py`, the Claude Code offer, and
+  "Launch Socials Studio now" all gained a `PythonSetupSucceeded()` `Check:` as an independent second
+  line of defense, so none of them ever runs after a failed Python setup. A new CI smoke test builds
+  a second installer with a deliberately-broken `requirements.txt` and proves, against the real
+  packaged installer: it reports failure (non-zero exit code), never writes `.first-run-pending`,
+  and leaves existing `profiles/` data untouched.
 - **macOS/Linux CI smoke tests no longer mask failures.** Removed every `|| true` on the installer
   script invocation and the post-extraction `chmod +x` repair -- the packaged archive must contain
   executable scripts as downloaded (`test -x` now asserts this before running anything), and any

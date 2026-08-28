@@ -66,6 +66,31 @@ path) or match whatever `python` the runner has on PATH, confirms the venv's own
 `3.12.x`, and confirms a real dependency (`playwright`) imports successfully -- both on first
 install and again after a reinstall. See `.github/workflows/build-installers.yml`.
 
+**A failed `uv venv`/`uv pip install` genuinely stops the install -- it doesn't get treated as a
+success.** `setup-python.bat` captures each `uv` call's exit code into a variable *immediately*
+after the call, before any other command (including its own heartbeat `echo`) can overwrite
+`%errorlevel%`, and exits with that same non-zero code if either step failed -- an earlier version
+of this script checked `if errorlevel 1` *after* an intervening `echo`, which silently checked
+`echo`'s own exit code instead of `uv`'s, so a failed `uv venv` was never actually detected. But a
+non-zero exit code from a `[Run]` entry doesn't stop Setup by itself: Inno Setup's own `[Run]`
+section documentation describes only wait-vs-don't-wait behaviour, nothing about inspecting a
+`ResultCode` and reacting to it -- there is no declarative way to make one `[Run]` entry's failure
+skip a later one. `setup.iss` therefore runs `setup-python.bat` from `[Code]`'s
+`CurStepChanged(ssPostInstall)` as a real `Exec()` call (`RunPythonSetup`), not a declarative
+`[Run]` entry, specifically so its `ResultCode` can be read: on failure, it shows an error box
+naming `_setup-python.log` when a wizard is actually visible (gated on `WizardSilent()`, so this
+can never block a CI/silent run waiting for a click nothing would ever provide) and raises a script
+exception so Setup itself reports genuine failure, not a false success. A `PythonSetupSucceeded()`
+`Check:` on the `bootstrap.py`, "Install Claude Code", and "Launch Socials Studio now" `[Run]`
+entries is the independent second line of defense -- none of them ever runs after a failed Python
+setup, regardless of exactly how Setup's own script-exception handling behaves for the exact event
+this runs from (documented clearly only for a couple of specific event functions, `ssPostInstall`
+not among them). A dedicated CI smoke test builds a second installer with a deliberately-broken
+`requirements.txt` (naming a package that cannot exist) and proves, against the real packaged
+installer: the silent install itself reports failure (non-zero exit code), `.first-run-pending`
+never gets created, and existing `profiles/` data is untouched -- see "Smoke test --
+dependency-install failure stops setup cleanly" in `.github/workflows/build-installers.yml`.
+
 **macOS and Linux are not fully automatic yet.** `install.sh` on both looks for a system
 `python3.10`+ (checking the real runtime version, not just trusting a `python3.1x`-looking binary
 name) and runs `bootstrap.py` with it directly, the same way the CLI route works. If no qualifying
