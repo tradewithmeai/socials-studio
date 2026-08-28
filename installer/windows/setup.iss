@@ -118,24 +118,26 @@ end;
 ; ("only-managed": "Only use managed Python installations; never use system
 ; Python installations.") -- not guessed. No system Python is required.
 ;
-; Routed through cmd.exe with output redirected to NUL. Confirmed live: run
-; directly, uv provisions a managed Python in seconds -- but run exactly the
-; same way through Inno Setup's plain Exec (no redirection), the CI job
-; hung indefinitely. uv writes a live-updating progress display while
-; downloading; Inno's Exec doesn't drain the child process's output pipes,
-; so once uv's writes fill the OS pipe buffer it blocks forever waiting for
-; a reader that will never come. Redirecting to NUL removes the pipe
-; entirely -- there's nothing to fill.
+; Routed through cmd.exe with output redirected to a log file, not NUL.
+; Confirmed live: run directly, uv provisions a managed Python in seconds --
+; but run exactly the same way through Inno Setup's plain Exec (no output
+; redirection at all), the CI job hung indefinitely. uv writes a
+; live-updating progress display while downloading; Inno's Exec doesn't
+; drain the child process's output pipes, so once uv's writes fill the OS
+; pipe buffer it blocks forever waiting for a reader that will never come.
+; Redirecting removes the pipe entirely -- there's nothing to fill. A real
+; file (not NUL) so a failure here is still diagnosable: see
+; {app}\_setup-python.log if Socials Studio doesn't work after install.
 Filename: "{sys}\cmd.exe"; \
-    Parameters: "/C ""{app}\_bootstrap-uv\uv.exe"" venv --python 3.12 --python-preference only-managed ""{app}\.venv"" >NUL 2>&1"; \
+    Parameters: "/C ""{app}\_bootstrap-uv\uv.exe"" venv --python 3.12 --python-preference only-managed ""{app}\.venv"" >""{app}\_setup-python.log"" 2>&1"; \
     WorkingDir: "{app}"; \
     StatusMsg: "Setting up Socials Studio's Python environment..."; \
     Flags: runhidden waituntilterminated
 
 ; Step 2: uv installs requirements.txt into that same managed-Python venv.
-; Same NUL-redirection reasoning as Step 1.
+; Same log-file-redirection reasoning as Step 1; appends to the same log.
 Filename: "{sys}\cmd.exe"; \
-    Parameters: "/C ""{app}\_bootstrap-uv\uv.exe"" pip install --python ""{app}\.venv\Scripts\python.exe"" -r ""{app}\requirements.txt"" >NUL 2>&1"; \
+    Parameters: "/C ""{app}\_bootstrap-uv\uv.exe"" pip install --python ""{app}\.venv\Scripts\python.exe"" -r ""{app}\requirements.txt"" >>""{app}\_setup-python.log"" 2>&1"; \
     WorkingDir: "{app}"; \
     StatusMsg: "Installing dependencies..."; \
     Flags: runhidden waituntilterminated

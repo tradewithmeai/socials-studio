@@ -35,12 +35,15 @@ something specific to this project's code. The installer now bundles a pinned
 (downloading an isolated interpreter if it needs to) and has no `ensurepip` dependency, so the
 Inno Setup `[Run]` section uses it directly: `uv venv --python 3.12 --python-preference
 only-managed`, then `uv pip install`, before handing off to `bootstrap.py --skip-python-setup` for
-the remaining checks. Both `uv` calls are routed through `cmd.exe /C ... >NUL 2>&1` -- confirmed
-live, running the same `uv` command directly completes in seconds, but run exactly the same way
-through Inno Setup's plain Exec (no output redirection) the CI job hung indefinitely: `uv`'s
-live-updating download progress fills the child process's output pipe, which Inno's `[Run]`
-mechanism never drains, so the write blocks forever once the OS pipe buffer is full. Redirecting
-to `NUL` removes the pipe entirely. `--python-preference only-managed` is verified against uv 0.5.11's real
+the remaining checks. Both `uv` calls are routed through `cmd.exe /C ... >"{app}\_setup-python.log"
+2>&1` -- confirmed live, running the same `uv` command directly completes in seconds, but run
+exactly the same way through Inno Setup's plain Exec (no output redirection) the CI job hung
+indefinitely: `uv`'s live-updating download progress fills the child process's output pipe, which
+Inno's `[Run]` mechanism never drains, so the write blocks forever once the OS pipe buffer is full.
+Redirecting to a real log file (not `NUL`) removes the pipe entirely while keeping any failure
+diagnosable -- an earlier version of this fix redirected to `NUL`, which stopped the hang but also
+hid a genuine `uv` failure with no way to see why; the smoke test now prints this log's contents on
+failure. `--python-preference only-managed` is verified against uv 0.5.11's real
 [`PythonPreference` enum](https://github.com/astral-sh/uv/blob/0.5.11/crates/uv-python/src/discovery.rs)
 -- it forces uv to provision its own downloaded Python 3.12 rather than opportunistically using a
 system Python if one happens to be present. The Windows CI smoke test proves this, not just the

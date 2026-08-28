@@ -140,7 +140,17 @@ jobs:
               $failed = $true
             }
           }
-          if ($failed) { throw "Smoke test failed: one or more expected files are missing after silent install." }
+          if ($failed) {
+            $log = "$installDir\_setup-python.log"
+            if (Test-Path $log) {
+              Write-Host "----- $log -----"
+              Get-Content $log | Write-Host
+              Write-Host "----------------"
+            } else {
+              Write-Host "$log does not exist either -- the uv [Run] steps may not have executed at all."
+            }
+            throw "Smoke test failed: one or more expected files are missing after silent install."
+          }
 
       - name: Smoke test -- prove the venv is a uv-*managed* Python 3.12, not the runner's own
         shell: pwsh

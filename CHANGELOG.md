@@ -60,9 +60,14 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
   never returned. Root cause: `uv` writes a live-updating progress display while downloading, and
   Inno Setup's `[Run]` entries don't drain a child process's output pipes -- once uv's writes fill
   the OS pipe buffer, it blocks indefinitely waiting for a reader that never comes. `setup.iss`'s
-  two `uv` `[Run]` entries are now routed through `cmd.exe /C ... >NUL 2>&1`, which removes the
-  pipe entirely. Also added `timeout-minutes` to every Windows step that can plausibly hang, so a
-  future regression fails cleanly within minutes instead of running for hours unnoticed.
+  two `uv` `[Run]` entries are now routed through `cmd.exe /C ... >"{app}\_setup-python.log" 2>&1`,
+  which removes the pipe entirely. An earlier version of this fix redirected to `NUL` instead --
+  that stopped the hang but also hid a genuine `uv` failure that surfaced immediately after (the
+  venv silently failed to get created, with no way to see why); redirecting to a real log file
+  keeps a failure diagnosable, and the "Smoke test -- silent install" step now prints that log's
+  contents if the expected files are missing. Also added `timeout-minutes` to every Windows step
+  that can plausibly hang, so a future regression fails cleanly within minutes instead of running
+  for hours unnoticed.
 - **macOS/Linux CI smoke tests no longer mask failures.** Removed every `|| true` on the installer
   script invocation and the post-extraction `chmod +x` repair -- the packaged archive must contain
   executable scripts as downloaded (`test -x` now asserts this before running anything), and any
