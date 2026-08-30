@@ -104,7 +104,16 @@ Name: "{app}\profiles"; Flags: uninsneveruninstall
 
 [Icons]
 Name: "{group}\Socials Studio"; Filename: "{app}\launch.bat"; WorkingDir: "{app}"
-Name: "{commondesktop}\Socials Studio"; Filename: "{app}\launch.bat"; WorkingDir: "{app}"; Tasks: desktopicon
+; {userdesktop} (the current user's own desktop), not {commondesktop} (the
+; shared public desktop) -- this installer uses PrivilegesRequired=lowest, and
+; writing a shortcut to the public desktop can require administrator rights
+; that a lowest-privilege install doesn't have. Confirmed live on real
+; Windows 11 hardware: the first real-hardware test of this installer failed
+; here with "IPersistFile::Save failed; code 0x80070005. Access is denied."
+; targeting "C:\Users\Public\Desktop\Socials Studio.lnk" -- installation and
+; the rest of first-run otherwise succeeded (Start Menu shortcut, Claude
+; Code's folder-trust prompt, launch into Socials Studio all worked).
+Name: "{userdesktop}\Socials Studio"; Filename: "{app}\launch.bat"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"

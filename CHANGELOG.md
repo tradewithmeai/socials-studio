@@ -151,6 +151,17 @@ installation and successfully launches Socials Studio -- see README.md's Testing
 
 ### Fixed
 
+- **First real Windows 11 hardware test of the guided installer (PR #7) found one issue.**
+  Socials Studio installed and launched successfully through the Start menu, folder trust worked
+  as expected, and Claude Code opened correctly inside it -- but the optional desktop shortcut
+  failed with `IPersistFile::Save failed; code 0x80070005. Access is denied.`, targeting
+  `C:\Users\Public\Desktop\Socials Studio.lnk`. Root cause: `setup.iss` uses
+  `PrivilegesRequired=lowest`, but the shortcut targeted `{commondesktop}` (the shared, all-users
+  desktop), which can require administrator rights to write to. Fixed by using `{userdesktop}` (the
+  current user's own desktop) instead -- the shortcut stays optional via the existing `desktopicon`
+  task, still targets `launch.bat`, and still needs no elevation. The rebuilt installer still needs
+  one short Windows hardware retest (confirming the desktop shortcut itself) before this platform
+  can be described as fully verified.
 - **Onboarding could fail on a non-English machine.** `auth/platforms.py`'s `logged_in_selector`
   values are English strings (e.g. `svg[aria-label="Home"]`), so on a machine with the OS/Chrome
   display language set to something else, a real, successful login could still fail verification
