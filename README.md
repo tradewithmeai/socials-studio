@@ -1,33 +1,81 @@
 # Socials Studio
 
-**The independent publishing companion for OpenMontage**
+**Turn an idea, image, video, or OpenMontage project into a real social media campaign.**
 
 [![CI](https://github.com/tradewithmeai/socials-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/tradewithmeai/socials-studio/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/tradewithmeai/socials-studio?include_prereleases)](https://github.com/tradewithmeai/socials-studio/releases)
-[![Python 3.10–3.13](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue)](#install)
+[![Python 3.10–3.13](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue)](#install-for-contributors-cli-route)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Works with OpenMontage output](https://img.shields.io/badge/OpenMontage-works%20with%20output-informational)](https://github.com/calesthio/OpenMontage)
 
-[OpenMontage](https://github.com/calesthio/OpenMontage) creates the video. Socials Studio handles
-review, authentication and publication.
+Tell it what you want -- a topic, a product shot, a finished video, or a rendered
+[OpenMontage](https://github.com/calesthio/OpenMontage) project -- and Socials Studio writes
+platform-specific posts for **YouTube, X, Bluesky, LinkedIn, and Instagram**, adapts each one to
+that platform's own conventions, and publishes only once you've reviewed and confirmed it.
+[Claude Code](https://claude.com/claude-code) is what actually does the writing, coordinating, and
+publishing -- Socials Studio is the local toolkit and set of skills it uses to do that safely.
 
-> Socials Studio is an independent community project. It is not affiliated with, maintained by, or
-> endorsed by OpenMontage.
+> Socials Studio is an independent community project, not affiliated with, maintained by, or
+> endorsed by OpenMontage. It works just as well with any other video, image, or idea.
 
-**Public beta — v0.1.0-beta.2.** Publish videos and posts to YouTube, X (Twitter), Bluesky,
-LinkedIn and Instagram -- see [Testing status](#testing-status) below before you point this at a
-real account.
+**Public beta — v0.1.0-beta.2.** Guided installers for Windows, macOS, and Linux are on the way
+(see [Get started](#get-started) below); this beta has been developed and tested with Claude Code
+-- see [Testing status](#testing-status) before pointing it at a real account.
 
-> **This beta is built and tested with [Claude Code](https://claude.com/claude-code)** -- it's the
-> only coding agent this has been validated with so far (see
-> [Testing status](#testing-status)). Using Claude Code? Have it read [AGENTS.md](AGENTS.md)
-> first -- it's a guided tour built for agents, not humans. Everything here also works driven by
-> hand, with no agent at all.
+---
 
-Socials Studio's own data -- platform sessions, OAuth tokens, publishing execution -- stays local
-to your machine (see [Publishing safety](#publishing-safety) and [PRIVACY.md](PRIVACY.md)). Claude
-Code itself is a separate service with its own configuration, data handling, and privacy terms --
-review those separately at [claude.com/claude-code](https://claude.com/claude-code).
+## Get started
+
+You need a [Claude subscription](https://claude.ai) either way -- Socials Studio doesn't work
+without Claude Code, since Claude is what actually reads your request, writes the posts, and runs
+the publishers. Two ways to get set up, both ending in the same place: a working Claude Code
+session, open in this project, ready to talk to.
+
+### Already use Claude Code? Just ask it.
+
+If you already have [Claude Code](https://claude.com/claude-code) installed and signed in, open a
+terminal anywhere and say:
+
+> "Clone `https://github.com/tradewithmeai/socials-studio` and set it up for me."
+
+Claude will clone the repository, explain each setup step before running it (a Python virtual
+environment, dependencies, a health check), and wait for your yes each time -- nothing happens
+silently. No separate installer needed for this route.
+
+### New to all this? Use the guided installer.
+
+Download the installer for your operating system and run it -- no GitHub account or Git required
+on any platform:
+
+- **Windows:** `Socials-Studio-Setup.exe` -- Python is set up for you automatically, no Python
+  knowledge needed.
+- **macOS:** `Socials-Studio-macOS.zip` (unzip, then run `install.sh`) -- needs a system Python
+  3.10+ already present (common on modern Macs); the installer checks the real version, not just
+  a filename, and tells you exactly how to get one if it's missing.
+- **Linux:** `Socials-Studio-Linux.tar.gz` (extract, then run `install.sh`) -- same Python
+  requirement and version check as macOS.
+
+Grab the latest from the [Releases page](https://github.com/tradewithmeai/socials-studio/releases).
+The installer copies the project onto your machine, checks for [Claude Code](https://claude.com/claude-code)
+and Google Chrome, and prepares the Python environment Socials Studio runs in. If Claude Code
+isn't found, it offers to install it for you -- on Windows, as an unchecked opt-in checkbox on
+the installer's own finish page (via WinGet if available, otherwise Anthropic's official
+installer, and only if you check the box); on macOS/Linux, as a yes/no prompt in the terminal.
+Declining either is fine -- the Socials Studio launcher is installed either way, and Claude Code
+is still required before you can use it. This project never bundles or redistributes Claude Code
+itself; it only offers to run Anthropic's own official installer, and only with your explicit
+say-so. It finishes by opening a Socials Studio launcher; the first time you run it, Claude
+introduces itself, explains what it can do, and offers to walk you through connecting your first
+platform.
+
+You'll still need to sign in to Claude with a qualifying account -- the installer can't do that
+part for you, and it never touches your social media accounts, logs in anywhere, or publishes
+anything during setup.
+
+*(See [Testing status](#testing-status) below for exactly what's been verified on each platform --
+none of the three is claimed as fully verified yet. The Windows installer is unsigned for now, so
+Windows may show an "unrecognized publisher" warning; that's expected until this project has a
+code-signing certificate.)*
 
 ---
 
@@ -172,7 +220,28 @@ output or anything else -- please [file a beta test report](#reporting-problems-
 either way, pass or fail, both are useful. Other coding agents, operating systems, and
 configurations haven't been validated at all yet; reports on those are especially welcome.
 
-## Install
+**Installers, specifically:** CI builds and smoke-tests all three on GitHub's own runners (silent
+install, verify the expected files exist, verify a reinstall doesn't touch `profiles/`) before any
+installer change merges -- see `.github/workflows/build-installers.yml`. That's real, automated
+platform coverage, but it is not the same as a person installing this on their own machine and
+actually launching Socials Studio. Do not read any of the three as fully verified until that's
+happened:
+
+- **Windows:** automated build and installation tested; awaiting human test on a normal Windows
+  machine.
+- **Linux:** installer mechanics tested on Ubuntu 24.04 x64; real Chrome/account publishing not
+  tested through this package.
+- **macOS:** automated runner test only; no human hardware test received.
+
+If you try any of these on real hardware, a [beta test report](#reporting-problems--requesting-features)
+saying exactly what happened -- pass or fail -- is exactly what this needs, especially for macOS
+and Linux, which haven't had a real-hardware run yet.
+
+## Install for contributors (CLI route)
+
+Most people should use [Get started](#get-started) above instead -- the agent route or the guided
+installer. This section is the manual, command-line path: useful if you're contributing to
+Socials Studio itself, scripting it, or just prefer doing it by hand.
 
 ```bash
 git clone https://github.com/tradewithmeai/socials-studio.git

@@ -1,0 +1,549 @@
+#!/usr/bin/env python3
+"""Cross-platform first-time setup for Socials Studio's installer route.
+
+Run once by the platform-specific installer (Windows .exe, macOS .command,
+Linux install.sh) after the plain repository source has been copied/cloned
+onto disk. This script never touches a social platform, never launches a
+publish/login flow, and never overwrites `profiles/` -- it checks for Claude
+Code and Chrome, prepares a Python virtual environment (see "Python
+provisioning" below), and writes a first-run marker.
+
+This is deliberately readable, ordinary Python -- not compiled or obfuscated
+-- so an agent (or a curious human) can open it and see exactly what it does.
+It has no dependency on the rest of this repository, so it can run before
+`requirements.txt` is installed.
+
+## Python provisioning: why Windows is different
+
+Windows: the installer bundles a pinned `uv` binary (https://github.com/astral-sh/uv) and passes
+its path via `--uv-path`. `uv` creates the venv and installs dependencies; this script's own
+`create_virtualenv`/`install_requirements` are skipped in that case. This exists because Python's
+official embeddable distribution for Windows -- the obvious-looking alternative to avoid asking
+a user to install Python -- ships without `ensurepip`, so `venv.EnvBuilder(with_pip=True)` cannot
+bootstrap pip into a new venv created from it; a straightforward embeddable-Python + `venv`
+approach genuinely does not work on Windows without extra unpacking that the embeddable
+distribution deliberately omits. `uv` sidesteps this entirely -- it manages Python and venvs
+itself and doesn't depend on `ensurepip`. This is proven by the Windows CI smoke test in
+`.github/workflows/build-installers.yml`, not assumed.
+
+macOS/Linux: this script uses the system's own `python3` (via the plain `venv` module, which
+works fine there -- only the Windows *embeddable* distribution has the `ensurepip` gap) to create
+`.venv` and install `requirements.txt` with `pip`, exactly like the CLI route in README.md. The
+install scripts (`installer/macos/install.sh`, `installer/linux/install.sh`) require a system
+Python 3.10+ and explain clearly, without attempting a silent/sudo install, if none is found --
+this is a genuine limitation of the current macOS/Linux installers, not something the public
+docs claim is fully automatic.
+
+Usage:
+    python bootstrap.py --project-dir /path/to/socials-studio [--uv-path /path/to/uv] [--skip-python-setup]
+
+## Why `--no-interactive-claude-offer` exists
+
+`maybe_offer_claude_install` normally prompts on stdin ("Install Claude Code now...? [y/N]"),
+which is the real, correct behaviour for the CLI route (asking Claude Code to set the project up
+directly) -- there's a real terminal to answer it in. The packaged Windows installer's Step 3
+`[Run]` entry (see setup.iss) runs this script hidden, with no console a human could type into --
+its `_default_confirm` catches `EOFError` for a closed/absent stdin, but a *hidden-but-open*
+console (what Inno's `runhidden` actually gives it) never reaches EOF, so `input()` just blocks
+forever. Confirmed live: this hung the Windows CI smoke test for the full step timeout with
+`bootstrap.py` still running, evidenced by `Get-CimInstance Win32_Process` showing it stuck at this
+exact command. Windows's real, working opt-in for installing Claude Code is the separate finish-page
+checkbox (`setup.iss`'s `[Code]`/`[Run]` -- see installer/README.md's "Offering to install Claude
+Code" section); this flag tells Step 3 to skip the redundant, stdin-blocking CLI-style prompt
+entirely rather than ask a question nothing can ever answer.
+"""
+
+from __future__ import annotations
+
+import argparse
+import shutil
+import subprocess
+import sys
+import venv
+from pathlib import Path
+from typing import Callable
+
+RunFn = Callable[..., subprocess.CompletedProcess]
+WhichFn = Callable[[str], "str | None"]
+
+FIRST_RUN_MARKER = ".first-run-pending"
+MIN_PYTHON_VERSION = (3, 10)
+
+# Common Chrome install locations, checked only if `shutil.which` misses --
+# this never launches or downloads anything, it just looks.
+WINDOWS_CHROME_PATHS = [
+    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+    r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+]
+MACOS_CHROME_PATHS = [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+]
+LINUX_CHROME_NAMES = ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser"]
+
+
+class SetupStep:
+    """One line of the setup report: what was checked, and the result."""
+
+    def __init__(self, name: str, ok: bool, detail: str = "") -> None:
+        self.name = name
+        self.ok = ok
+        self.detail = detail
+
+    def __repr__(self) -> str:  # pragma: no cover - cosmetic only
+        mark = "OK" if self.ok else "ACTION NEEDED"
+        return f"[{mark}] {self.name}: {self.detail}" if self.detail else f"[{mark}] {self.name}"
+
+
+def find_claude_cli(which: WhichFn = shutil.which) -> str | None:
+    """Locate an installed Claude Code CLI on PATH. Never installs it."""
+    return which("claude")
+
+
+def official_claude_install_command(
+    platform_name: str, which: WhichFn = shutil.which
+) -> list[str] | None:
+    """The command for Anthropic's own official Claude Code installer.
+
+    Verified against Anthropic's current documentation
+    (https://code.claude.com/docs/en/setup) -- these are real, documented
+    install routes, not approximations:
+
+    - macOS/Linux: `curl -fsSL https://claude.ai/install.sh | bash`
+    - Windows, with WinGet available: `winget install Anthropic.ClaudeCode`
+      (preferred -- a native package manager install, not a piped script)
+    - Windows, without WinGet: the official PowerShell installer,
+      `irm https://claude.ai/install.ps1 | iex`
+
+    This project never bundles or redistributes Claude Code itself -- it
+    only offers to invoke Anthropic's own installer, and only ever after
+    explicit user consent (see maybe_offer_claude_install and, for the
+    packaged Windows installer specifically, the graphical opt-in checkbox
+    on setup.iss's finish page).
+    """
+    if platform_name in ("darwin", "linux"):
+        return ["bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"]
+    if platform_name == "win32":
+        if which("winget"):
+            return [
+                "winget", "install", "--id", "Anthropic.ClaudeCode", "-e",
+                "--accept-source-agreements", "--accept-package-agreements",
+            ]
+        return [
+            "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+            "irm https://claude.ai/install.ps1 | iex",
+        ]
+    return None
+
+
+def maybe_offer_claude_install(
+    claude_step: SetupStep,
+    platform_name: str,
+    confirm: Callable[[str], bool] | None = None,
+    run: RunFn = subprocess.run,
+    which: WhichFn = shutil.which,
+) -> None:
+    """If Claude Code is missing, offer to run Anthropic's official installer.
+
+    Does nothing if Claude Code was already found. Never runs anything
+    without explicit confirmation. This project does not redistribute
+    Claude Code -- it only offers to invoke Anthropic's own installer, and
+    prefers WinGet on Windows when it's available (a native package-manager
+    install) over the PowerShell script.
+
+    On the packaged Windows installer specifically, this CLI-level prompt
+    is not what the user sees (bootstrap.py runs hidden there) -- the real
+    opt-in is a checkbox on the Inno Setup finish page; see setup.iss. This
+    function is still exercised there in `--skip-python-setup` mode for the
+    Chrome/Claude report, and is the real, interactive path for the CLI
+    route (asking Claude Code directly to set the project up) on every
+    platform including Windows.
+
+    The default confirm function treats a closed/absent stdin (EOFError) as
+    "no" rather than crashing -- any non-interactive invocation (a script,
+    a scheduled task, a piped installer run) has no terminal to read a real
+    answer from, and this setup step must degrade gracefully there, not
+    blow up the rest of the setup report.
+
+    A failure from the installer command itself (non-zero exit, or the
+    command couldn't even start) is reported, never raised -- this is a
+    best-effort offer, not a step the rest of setup depends on.
+    """
+    if claude_step.ok:
+        return
+    command = official_claude_install_command(platform_name, which)
+    if command is None:
+        print(
+            "Install Claude Code from https://claude.com/claude-code, sign in with a "
+            "qualifying Claude account, then run this setup again."
+        )
+        return
+
+    def _default_confirm(prompt: str) -> bool:
+        try:
+            return input(prompt).strip().lower() == "y"
+        except EOFError:
+            return False
+
+    ask = confirm or _default_confirm
+    if not ask("Install Claude Code now using Anthropic's official installer? [y/N] "):
+        print(
+            "Skipped. Claude Code is still required to use Socials Studio -- install it "
+            "later from https://claude.com/claude-code. The Socials Studio launcher is "
+            "already installed and will work once Claude Code is."
+        )
+        return
+
+    try:
+        result = run(command, capture_output=True, text=True)
+    except OSError as exc:
+        print(
+            f"Could not run the Claude Code installer ({exc}). Install it yourself from "
+            "https://claude.com/claude-code. The Socials Studio launcher is already installed."
+        )
+        return
+
+    returncode = getattr(result, "returncode", 0)
+    if returncode != 0:
+        stderr = getattr(result, "stderr", "") or ""
+        print(
+            f"The Claude Code installer exited with code {returncode}: {stderr[-400:]}\n"
+            "Install it yourself from https://claude.com/claude-code. The Socials Studio "
+            "launcher is already installed and will work once Claude Code is."
+        )
+    else:
+        print(
+            "Claude Code installer finished. You may need to open a new terminal window "
+            "for `claude` to be on PATH."
+        )
+
+
+def find_chrome(
+    platform_name: str,
+    which: WhichFn = shutil.which,
+    path_exists: Callable[[str], bool] = lambda p: Path(p).exists(),
+) -> str | None:
+    """Locate an installed Chrome browser. Never downloads or installs it."""
+    if platform_name == "win32":
+        for candidate in WINDOWS_CHROME_PATHS:
+            if path_exists(candidate):
+                return candidate
+        return None
+    if platform_name == "darwin":
+        for candidate in MACOS_CHROME_PATHS:
+            if path_exists(candidate):
+                return candidate
+        return None
+    for name in LINUX_CHROME_NAMES:
+        found = which(name)
+        if found:
+            return found
+    return None
+
+
+def check_claude_code(which: WhichFn = shutil.which) -> SetupStep:
+    path = find_claude_cli(which)
+    if path:
+        return SetupStep("Claude Code CLI", True, path)
+    return SetupStep(
+        "Claude Code CLI",
+        False,
+        "Not found on PATH. Install it from https://claude.com/claude-code, then "
+        "run this setup again. A qualifying Claude account and sign-in are required "
+        "-- this installer does not create one for you.",
+    )
+
+
+def check_chrome(platform_name: str, which: WhichFn = shutil.which) -> SetupStep:
+    path = find_chrome(platform_name, which)
+    if path:
+        return SetupStep("Google Chrome", True, path)
+    return SetupStep(
+        "Google Chrome",
+        False,
+        "Not found. X, Bluesky, LinkedIn, and Instagram publishing all drive a real "
+        "Chrome window -- install it from https://www.google.com/chrome/ before "
+        "connecting those platforms. YouTube doesn't need it.",
+    )
+
+
+def python_version_supported(version_info: tuple[int, int]) -> bool:
+    """Whether a (major, minor) Python version meets Socials Studio's minimum.
+
+    Used by installer\\macos\\install.sh and installer\\linux\\install.sh (via a
+    one-line `python3 -c` invocation, since the version check has to happen
+    *before* any Python script -- including this one -- can be trusted to
+    run) to reject an old system `python3` rather than silently accepting
+    whatever the name resolves to.
+    """
+    return version_info >= MIN_PYTHON_VERSION
+
+
+def create_virtualenv(project_dir: Path, venv_dir: Path) -> SetupStep:
+    """Create the .venv Socials Studio's own scripts will run in, using the
+    system Python this script itself is running under (via the stdlib `venv`
+    module). This works reliably on macOS/Linux; see the module docstring
+    for why Windows uses `create_virtualenv_with_uv` instead.
+
+    Idempotent: if venv_dir already has a python executable, this is a no-op
+    (an upgrade re-run should not need to rebuild it from scratch).
+    """
+    existing_python = venv_dir / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python3")
+    if existing_python.exists():
+        return SetupStep("Python virtual environment", True, f"Already present at {venv_dir}")
+
+    venv.EnvBuilder(with_pip=True, clear=False).create(str(venv_dir))
+    return SetupStep("Python virtual environment", True, f"Created at {venv_dir}")
+
+
+def install_requirements(
+    venv_dir: Path,
+    project_dir: Path,
+    run: RunFn = subprocess.run,
+) -> SetupStep:
+    pip = venv_dir / ("Scripts/pip.exe" if sys.platform == "win32" else "bin/pip")
+    requirements = project_dir / "requirements.txt"
+    if not requirements.is_file():
+        return SetupStep("Python dependencies", False, f"{requirements} not found")
+
+    result = run(
+        [str(pip), "install", "-r", str(requirements)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return SetupStep(
+            "Python dependencies",
+            False,
+            f"pip install failed (exit {result.returncode}): {result.stderr[-400:]}",
+        )
+    return SetupStep("Python dependencies", True, "Installed")
+
+
+def create_virtualenv_with_uv(
+    uv_path: Path,
+    venv_dir: Path,
+    run: RunFn = subprocess.run,
+    python_version: str | None = None,
+    python_preference: str | None = None,
+) -> SetupStep:
+    """Windows path: create .venv using a bundled, pinned `uv` binary instead
+    of the stdlib `venv` module. See the module docstring for why -- the
+    Windows embeddable Python distribution can't bootstrap pip via
+    `ensurepip`, so `uv` (which manages its own Python provisioning and
+    doesn't depend on `ensurepip` at all) replaces that step entirely.
+
+    `python_version` (e.g. "3.12") and `python_preference` (e.g.
+    "only-managed", verified against uv 0.5.11's real `PythonPreference` enum
+    at https://github.com/astral-sh/uv/blob/0.5.11/crates/uv-python/src/discovery.rs
+    -- not guessed) let a caller force uv to provision its own managed Python
+    rather than opportunistically using whatever `python` is already on the
+    machine. The packaged Windows installer (setup.iss) passes these
+    directly to the bundled `uv.exe` itself rather than through this
+    function; they're exposed here too so this function stays consistent
+    with that behavior if it's ever invoked directly (e.g. `--uv-path`).
+
+    Idempotent, same as create_virtualenv.
+    """
+    existing_python = venv_dir / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python3")
+    if existing_python.exists():
+        return SetupStep("Python virtual environment (uv)", True, f"Already present at {venv_dir}")
+
+    command = [str(uv_path), "venv"]
+    if python_version:
+        command += ["--python", python_version]
+    if python_preference:
+        command += ["--python-preference", python_preference]
+    command.append(str(venv_dir))
+
+    result = run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        return SetupStep(
+            "Python virtual environment (uv)",
+            False,
+            f"uv venv failed (exit {result.returncode}): {result.stderr[-400:]}",
+        )
+    return SetupStep("Python virtual environment (uv)", True, f"Created at {venv_dir}")
+
+
+def install_requirements_with_uv(
+    uv_path: Path,
+    venv_dir: Path,
+    project_dir: Path,
+    run: RunFn = subprocess.run,
+) -> SetupStep:
+    requirements = project_dir / "requirements.txt"
+    if not requirements.is_file():
+        return SetupStep("Python dependencies (uv)", False, f"{requirements} not found")
+
+    venv_python = venv_dir / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python3")
+    result = run(
+        [str(uv_path), "pip", "install", "--python", str(venv_python), "-r", str(requirements)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return SetupStep(
+            "Python dependencies (uv)",
+            False,
+            f"uv pip install failed (exit {result.returncode}): {result.stderr[-400:]}",
+        )
+    return SetupStep("Python dependencies (uv)", True, "Installed")
+
+
+def preserve_existing_profile_data(project_dir: Path) -> SetupStep:
+    """Confirm `profiles/` is untouched by this run.
+
+    This function does not copy, move, or delete anything under `profiles/` --
+    it exists to make the guarantee explicit and testable: an upgrade or
+    re-run of this script must never disturb saved logins, OAuth tokens, or
+    anything else a user has already connected.
+    """
+    profiles_dir = project_dir / "profiles"
+    if profiles_dir.exists():
+        return SetupStep(
+            "Existing profiles/ data",
+            True,
+            "Found and left untouched -- saved logins and tokens are preserved.",
+        )
+    return SetupStep("Existing profiles/ data", True, "None yet -- nothing to preserve.")
+
+
+def write_first_run_marker(project_dir: Path) -> SetupStep:
+    """Drop a marker file so Claude knows to run the welcome flow on first launch.
+
+    CLAUDE.md instructs an agent to check for this file, welcome the user,
+    explain what Socials Studio can do, offer guided platform setup, and then
+    delete the marker -- so the welcome only happens once, not every session.
+    """
+    marker = project_dir / FIRST_RUN_MARKER
+    if marker.exists():
+        return SetupStep("First-run welcome marker", True, "Already present")
+    marker.write_text(
+        "This file tells Claude Code to run the first-time welcome flow.\n"
+        "See CLAUDE.md. Claude deletes this file once the welcome is done.\n",
+        encoding="utf-8",
+    )
+    return SetupStep("First-run welcome marker", True, f"Written to {marker}")
+
+
+def run_setup(
+    project_dir: Path,
+    platform_name: str = sys.platform,
+    which: WhichFn = shutil.which,
+    run: RunFn = subprocess.run,
+    uv_path: Path | None = None,
+    skip_python_setup: bool = False,
+    uv_python_version: str | None = None,
+    uv_python_preference: str | None = None,
+) -> list[SetupStep]:
+    """Run every setup step in order and return the full report.
+
+    Never logs into a platform, never publishes anything, never contacts a
+    social platform's servers. The only network activity here is dependency
+    installation (`pip install` or `uv pip install`), and only after
+    Chrome/Claude checks (which are local-only) have already run.
+
+    `uv_path`, when given, routes venv creation and dependency installation
+    through the bundled `uv` binary instead of the stdlib `venv` module --
+    see the module docstring for why Windows needs this.
+
+    `skip_python_setup=True` skips venv creation and dependency installation
+    entirely -- for the Windows installer, where the Inno Setup `[Run]`
+    section already invoked `uv` directly before calling this script, so
+    redoing it here would be redundant, not incorrect, but wasteful.
+    """
+    venv_dir = project_dir / ".venv"
+    steps = [
+        check_claude_code(which),
+        check_chrome(platform_name, which),
+    ]
+
+    if not skip_python_setup:
+        if uv_path is not None:
+            steps.append(
+                create_virtualenv_with_uv(
+                    uv_path, venv_dir, run,
+                    python_version=uv_python_version,
+                    python_preference=uv_python_preference,
+                )
+            )
+            steps.append(install_requirements_with_uv(uv_path, venv_dir, project_dir, run))
+        else:
+            steps.append(create_virtualenv(project_dir, venv_dir))
+            steps.append(install_requirements(venv_dir, project_dir, run))
+
+    steps.append(preserve_existing_profile_data(project_dir))
+    steps.append(write_first_run_marker(project_dir))
+    return steps
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--project-dir", required=True, help="Path to the Socials Studio checkout")
+    parser.add_argument(
+        "--uv-path",
+        default=None,
+        help="Path to a bundled uv binary (Windows only) -- routes venv/dependency setup through it",
+    )
+    parser.add_argument(
+        "--skip-python-setup",
+        action="store_true",
+        help="Skip venv creation and dependency install (Windows: already done via uv in [Run])",
+    )
+    parser.add_argument(
+        "--uv-python-version",
+        default=None,
+        help="Python version to request from uv (e.g. 3.12) -- only used with --uv-path",
+    )
+    parser.add_argument(
+        "--uv-python-preference",
+        default=None,
+        help="uv --python-preference value (e.g. only-managed) -- only used with --uv-path",
+    )
+    parser.add_argument(
+        "--no-interactive-claude-offer",
+        action="store_true",
+        help=(
+            "Never prompt on stdin to offer installing Claude Code -- used by the packaged "
+            "Windows installer, which runs this script hidden and offers Claude Code via its "
+            "own finish-page checkbox instead. See the module docstring."
+        ),
+    )
+    args = parser.parse_args()
+
+    project_dir = Path(args.project_dir).expanduser().resolve()
+    if not project_dir.is_dir():
+        print(f"Project directory not found: {project_dir}")
+        return 1
+
+    uv_path = Path(args.uv_path).expanduser().resolve() if args.uv_path else None
+
+    print(f"Setting up Socials Studio in {project_dir}\n")
+    steps = run_setup(
+        project_dir,
+        uv_path=uv_path,
+        skip_python_setup=args.skip_python_setup,
+        uv_python_version=args.uv_python_version,
+        uv_python_preference=args.uv_python_preference,
+    )
+    for step in steps:
+        print(step)
+
+    claude_step = steps[0]
+    if not claude_step.ok:
+        print()
+        if args.no_interactive_claude_offer:
+            maybe_offer_claude_install(claude_step, sys.platform, confirm=lambda _prompt: False)
+        else:
+            maybe_offer_claude_install(claude_step, sys.platform)
+
+    failed = [s for s in steps if not s.ok]
+    if failed:
+        print("\nSetup needs your attention before Socials Studio is ready -- see above.")
+        return 1
+    print("\nSetup complete. Launch Socials Studio to get started.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

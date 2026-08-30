@@ -1,5 +1,16 @@
 # Socials Studio
 
+**Check for a `.first-run-pending` file in the repo root before anything else.** It's written by
+the installer (see `installer/bootstrap.py`) for someone who just installed Socials Studio via the
+Windows/macOS/Linux installer, not by someone who cloned the repo directly. If it's there:
+welcome the user by name if you know it, explain in a few plain sentences what Socials Studio can
+do (turn an idea, image, video, or OpenMontage project into platform-specific posts for YouTube,
+X, Bluesky, LinkedIn, and Instagram, with a human review step before anything publishes), then
+offer to walk them through connecting a platform (see [Existing skills](AGENTS.md#7-existing-skills-and-when-to-use-them)'s
+`onboard-<platform>` skills) -- but only if they want to right now, not as a forced next step.
+Delete the marker file once you've done this, so it only happens once, on the very first launch.
+If the file isn't there, skip straight to normal operation below.
+
 **Read [AGENTS.md](AGENTS.md) yourself, in full, before your first real action in this repo** --
 don't wait for the user to tell you to, and don't tell a non-technical user to go read it
 themselves. It's the guided tour: the product model, the operator journey, the safety rules, the
