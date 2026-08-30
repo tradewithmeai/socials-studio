@@ -29,6 +29,16 @@ _WINDOWS_CANDIDATES = [
     r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe",
 ]
 
+# Real Google Chrome executable names on PATH (Linux, plus a generic "chrome"
+# checked on every platform before the OS-specific paths below). Deliberately
+# excludes chromium/chromium-browser -- see this module's docstring for why
+# Chromium isn't an acceptable substitute. Must stay in sync with
+# installer/bootstrap.py's LINUX_CHROME_NAMES -- enforced by
+# tests/test_chrome_linux_detection_parity.py, not by importing across that
+# boundary: bootstrap.py has to run standalone, before this package's own
+# dependencies are installed.
+_CHROME_EXECUTABLE_NAMES = ["chrome", "google-chrome", "google-chrome-stable"]
+
 
 def find_system_chrome() -> Path:
     """Locate a plain, human-launched Chrome executable for manual login.
@@ -36,7 +46,11 @@ def find_system_chrome() -> Path:
     Raises SystemExit with install instructions if none is found -- this
     must be a real system Chrome install, not Playwright's managed binary.
     """
-    which = shutil.which("chrome") or shutil.which("google-chrome") or shutil.which("chrome.exe")
+    for name in _CHROME_EXECUTABLE_NAMES:
+        which = shutil.which(name)
+        if which:
+            return Path(which)
+    which = shutil.which("chrome.exe")
     if which:
         return Path(which)
 
