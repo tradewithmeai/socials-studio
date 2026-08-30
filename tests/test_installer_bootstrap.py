@@ -43,9 +43,40 @@ def test_find_chrome_windows_uses_known_paths_not_which():
 
 
 def test_find_chrome_linux_uses_which():
-    which = MagicMock(side_effect=lambda name: "/usr/bin/chromium" if name == "chromium" else None)
+    which = MagicMock(
+        side_effect=lambda name: "/usr/bin/google-chrome-stable" if name == "google-chrome-stable" else None
+    )
     found = bootstrap.find_chrome("linux", which=which)
-    assert found == "/usr/bin/chromium"
+    assert found == "/usr/bin/google-chrome-stable"
+
+
+def test_find_chrome_linux_accepts_every_supported_real_chrome_name():
+    """Regression test for the Codex-reported Linux Chrome-detection mismatch:
+    the installer used to also accept `chromium`/`chromium-browser`, which
+    auth/chrome_setup.find_system_chrome() has never accepted -- so the
+    installer could report Chrome as present when onboarding would then
+    refuse the very executable it found. Every name in LINUX_CHROME_NAMES
+    must actually be detected."""
+    for name in bootstrap.LINUX_CHROME_NAMES:
+        which = MagicMock(side_effect=lambda candidate, _match=name: f"/usr/bin/{_match}" if candidate == _match else None)
+        found = bootstrap.find_chrome("linux", which=which)
+        assert found == f"/usr/bin/{name}"
+
+
+def test_find_chrome_linux_rejects_chromium_alone():
+    """`chromium` alone (Chromium, not real Google Chrome) must not satisfy
+    the installer's Linux Chrome check -- Socials Studio's login/publishing
+    design depends on real Chrome, not Chromium."""
+    which = MagicMock(side_effect=lambda name: "/usr/bin/chromium" if name == "chromium" else None)
+    assert bootstrap.find_chrome("linux", which=which) is None
+
+
+def test_find_chrome_linux_rejects_chromium_browser_alone():
+    """Same as above for the Debian/Ubuntu `chromium-browser` package name."""
+    which = MagicMock(
+        side_effect=lambda name: "/usr/bin/chromium-browser" if name == "chromium-browser" else None
+    )
+    assert bootstrap.find_chrome("linux", which=which) is None
 
 
 def test_check_chrome_missing_explains_why_it_matters():

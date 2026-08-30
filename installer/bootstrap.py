@@ -78,7 +78,17 @@ WINDOWS_CHROME_PATHS = [
 MACOS_CHROME_PATHS = [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
 ]
-LINUX_CHROME_NAMES = ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser"]
+# Real Google Chrome only -- Chromium is deliberately not accepted here.
+# Socials Studio's login/publishing design depends on real Chrome (social
+# platforms are more likely to flag Chromium's fingerprint as automation --
+# see auth/chrome_setup.py's module docstring); accepting Chromium here would
+# let this installer report Chrome as present when auth/chrome_setup.py's
+# find_system_chrome() would then refuse the very executable it found. Must
+# stay in sync with that module's _CHROME_EXECUTABLE_NAMES -- enforced by
+# tests/test_chrome_linux_detection_parity.py, not a shared import: this
+# script has to run standalone, before installer/requirements.txt (and so
+# the auth/ package's own dependencies) are installed.
+LINUX_CHROME_NAMES = ["chrome", "google-chrome", "google-chrome-stable"]
 
 
 class SetupStep:

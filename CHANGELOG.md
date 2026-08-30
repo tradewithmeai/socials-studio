@@ -151,6 +151,18 @@ installation and successfully launches Socials Studio -- see README.md's Testing
 
 ### Fixed
 
+- **Linux setup no longer mistakes Chromium for the required Google Chrome.** Reported by Codex
+  review: `installer/bootstrap.py`'s Linux Chrome detection accepted `chromium` and
+  `chromium-browser` in addition to real Chrome executable names, but
+  `auth/chrome_setup.find_system_chrome()` (used at runtime for the manual login step) has never
+  accepted either -- so the installer could report Chrome as present while onboarding then refused
+  the very executable it found. Socials Studio deliberately requires real Google Chrome, not
+  Chromium, because its login/publishing design depends on it (see `auth/chrome_setup.py`'s module
+  docstring). Fixed by removing `chromium`/`chromium-browser` from the installer's accepted names
+  and adding `google-chrome-stable` to the runtime check, so both now recognise exactly the same
+  three real-Chrome executable names (`chrome`, `google-chrome`, `google-chrome-stable`) --
+  Chromium remains unsupported on both. A new parity test guards against the two lists silently
+  diverging again.
 - **First real Windows 11 hardware test of the guided installer (PR #7) found one issue.**
   Socials Studio installed and launched successfully through the Start menu, folder trust worked
   as expected, and Claude Code opened correctly inside it -- but the optional desktop shortcut
