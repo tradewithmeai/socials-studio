@@ -151,6 +151,14 @@ installation and successfully launches Socials Studio -- see README.md's Testing
 
 ### Fixed
 
+- **The Windows installer stamped itself as beta.3 after v0.1.0-beta.4 was released.** Reported by
+  Codex review: `installer/windows/setup.iss`'s `MyAppVersion` -- baked into the built `.exe` as
+  its `AppVersion`, visible in Windows' Programs & Features and the installer's own properties --
+  was left at `0.1.0-beta.3`, so the advertised beta.4 download would install and register itself
+  as beta.3, misleading for version reporting and upgrade diagnosis. Fixed by bumping
+  `MyAppVersion` to `0.1.0-beta.4`. Added a regression test cross-checking it against
+  `docs/index.html`'s JSON-LD `softwareVersion` field, since there's no single VERSION file in this
+  repo to check against instead.
 - **Linux setup no longer mistakes Chromium for the required Google Chrome.** Reported by Codex
   review: `installer/bootstrap.py`'s Linux Chrome detection accepted `chromium` and
   `chromium-browser` in addition to real Chrome executable names, but

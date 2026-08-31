@@ -50,7 +50,7 @@
 ; succeeded is reported from the real CI run, not asserted in this comment.
 
 #define MyAppName "Socials Studio"
-#define MyAppVersion "0.1.0-beta.3"
+#define MyAppVersion "0.1.0-beta.4"
 #define MyAppPublisher "Socials Studio (independent, community project)"
 #define MyAppURL "https://github.com/tradewithmeai/socials-studio"
 #ifndef MyOutputBaseFilename
