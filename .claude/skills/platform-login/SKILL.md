@@ -1,15 +1,15 @@
 ---
 name: platform-login
-description: Log into a social platform (Instagram, Bluesky, LinkedIn, X) once via a plain, non-automated Chrome window, saving the session so future posts don't require re-auth. Does NOT cover YouTube -- see onboard-youtube instead. Use when the user asks to connect/log in/authenticate a platform, or when a publish attempt fails because no saved session exists for that platform.
+description: Log into a social platform (Instagram, Bluesky, LinkedIn, X, Facebook) once via a plain, non-automated Chrome window, saving the session so future posts don't require re-auth. Does NOT cover YouTube or TikTok -- see onboard-youtube / onboard-tiktok instead. Use when the user asks to connect/log in/authenticate a platform, or when a publish attempt fails because no saved session exists for that platform.
 ---
 
 # Platform login wizard
 
 ## When to use it
 
-The user asks to connect, log in to, or authenticate Instagram, Bluesky, LinkedIn, or X, a
-publish/post attempt reports no saved session, or a session has gone stale. Not for YouTube --
-that uses OAuth, see `onboard-youtube`.
+The user asks to connect, log in to, or authenticate Instagram, Bluesky, LinkedIn, X, or Facebook,
+a publish/post attempt reports no saved session, or a session has gone stale. Not for YouTube or
+TikTok -- both use OAuth, see `onboard-youtube` / `onboard-tiktok`.
 
 ## Instructions
 
@@ -17,10 +17,15 @@ that uses OAuth, see `onboard-youtube`.
 python -m auth.login_wizard --platform instagram
 ```
 
-Supported platform keys: `instagram`, `bluesky`, `linkedin`, `x` (list with
+Supported platform keys: `instagram`, `bluesky`, `linkedin`, `x`, `facebook` (list with
 `python -m auth.login_wizard --list`). Tell the user a Chrome window will open and they need to
 log in by hand, then close that window completely when done. The wizard then verifies the session
 read-only via Playwright, without touching a login form.
+
+**Facebook is a community-contributed extra, unverified against a live account** -- see
+`.claude/skills/publish-facebook/SKILL.md` before telling a user it's ready. Treat the first
+login-wizard run against it as the live test of `auth/platforms.py`'s Facebook
+`logged_in_selector`, not a known-good value.
 
 That window opens in English regardless of the machine's OS/Chrome language -- the isolated
 `profiles/<platform>/` profile is forced to `en-US` so `auth/platforms.py`'s English-language

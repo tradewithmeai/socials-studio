@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from auth.publish_bluesky import publish_bluesky
+from auth.publish_facebook import publish_facebook
 from auth.publish_instagram import publish_instagram
 from auth.publish_linkedin import publish_linkedin
 from auth.publish_x import publish_x
@@ -24,6 +25,7 @@ TEXT_PUBLISHERS = [
     ("auth.publish_x", publish_x, "x"),
     ("auth.publish_bluesky", publish_bluesky, "bluesky"),
     ("auth.publish_linkedin", publish_linkedin, "linkedin"),
+    ("auth.publish_facebook", publish_facebook, "facebook"),
 ]
 
 
@@ -32,7 +34,13 @@ def no_browser(monkeypatch):
     """Patch sync_playwright and ensure_chrome_installed everywhere they're imported, and
     return the mocks so a test can assert they were never called."""
     mocks = {}
-    for mod_path in ("auth.publish_x", "auth.publish_bluesky", "auth.publish_linkedin", "auth.publish_instagram"):
+    for mod_path in (
+        "auth.publish_x",
+        "auth.publish_bluesky",
+        "auth.publish_linkedin",
+        "auth.publish_instagram",
+        "auth.publish_facebook",
+    ):
         sp = MagicMock(name=f"{mod_path}.sync_playwright")
         ec = MagicMock(name=f"{mod_path}.ensure_chrome_installed")
         monkeypatch.setattr(f"{mod_path}.sync_playwright", sp, raising=False)

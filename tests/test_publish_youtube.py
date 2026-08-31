@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from auth.publish_youtube import SCOPES, UPLOAD_TERMS_NOTICE, publish_youtube
+from auth.publish_youtube import DEFAULT_CATEGORY_ID, SCOPES, UPLOAD_TERMS_NOTICE, publish_youtube
 
 
 @pytest.fixture
@@ -149,6 +149,41 @@ def test_cli_made_for_kids_and_not_made_for_kids_each_work_standalone():
         )
         assert result.returncode != 0
         assert expect_snippet in result.stdout + result.stderr
+
+
+def test_category_id_defaults_to_people_and_blogs(no_api, tmp_path):
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"not a real video, just needs to exist")
+    result = publish_youtube(str(video), title="t")
+    assert result["category_id"] == DEFAULT_CATEGORY_ID == "22"
+
+
+def test_category_id_override_is_passed_through(no_api, tmp_path):
+    """Passing a different category (e.g. '20' Gaming) must actually flow through, not be
+    silently ignored in favor of the hardcoded default."""
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"not a real video, just needs to exist")
+    result = publish_youtube(str(video), title="t", category_id="20")
+    assert result["category_id"] == "20"
+
+
+def test_cli_category_id_defaults_and_overrides():
+    """Real subprocess run of the CLI parser -- default is People & Blogs when --category-id
+    is omitted, and the flag is accepted when passed."""
+    result_default = subprocess.run(
+        [sys.executable, "-m", "auth.publish_youtube", "nonexistent.mp4", "--title", "t"],
+        capture_output=True, text=True,
+    )
+    assert result_default.returncode != 0  # fails downstream on missing file, that's expected
+    assert "not found" in result_default.stdout + result_default.stderr
+
+    result_override = subprocess.run(
+        [sys.executable, "-m", "auth.publish_youtube", "nonexistent.mp4", "--title", "t",
+         "--category-id", "20"],
+        capture_output=True, text=True,
+    )
+    assert result_override.returncode != 0
+    assert "not found" in result_override.stdout + result_override.stderr
 
 
 def test_scopes_are_minimal():

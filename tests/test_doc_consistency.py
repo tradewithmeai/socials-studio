@@ -17,8 +17,9 @@ def _read(rel_path: str) -> str:
 
 def test_login_wizard_list_includes_all_platforms():
     """auth.login_wizard's --list output is driven by auth.platforms' dormant flag -- this
-    confirms no platform is currently marked dormant, so all four browser-session platforms
-    (including X) are on the CLI's own advertised list, not just a doc claim."""
+    confirms no platform is currently marked dormant, so all five browser-session platforms
+    (including X and the experimental Facebook extra) are on the CLI's own advertised list,
+    not just a doc claim."""
     from auth.platforms import PLATFORMS
 
     dormant_keys = {key for key, cfg in PLATFORMS.items() if cfg.dormant}
@@ -26,7 +27,7 @@ def test_login_wizard_list_includes_all_platforms():
 
     # Simulate the same filter login_wizard.main() applies, without needing to invoke argparse.
     listed_keys = {key for key, cfg in PLATFORMS.items() if not cfg.dormant}
-    assert listed_keys == {"instagram", "bluesky", "linkedin", "x"}
+    assert listed_keys == {"instagram", "bluesky", "linkedin", "x", "facebook"}
 
 
 def test_doctor_browser_platforms_includes_x():

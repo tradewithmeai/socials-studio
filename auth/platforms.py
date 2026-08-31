@@ -14,6 +14,10 @@ Platforms listed here (Instagram, X) are NOT immune to anti-automation
 defenses either -- see auth/login_wizard.py's module docstring. The login
 step for these must happen in a plain, non-Playwright Chrome; only a
 session a human already established gets reused by automation afterward.
+
+Facebook's `logged_in_selector` in particular has NOT been verified against a live account --
+see README.md's "Community extras" section and `.claude/skills/publish-facebook/SKILL.md`. Treat
+the first login-wizard run against it as the live test of that selector, not a known-good value.
 """
 
 from __future__ import annotations
@@ -69,6 +73,19 @@ PLATFORMS: dict[str, PlatformConfig] = {
         login_url="https://www.linkedin.com/login",
         login_url_marker="/login",
         logged_in_selector='div[role="button"]:has-text("Start a post")',
+    ),
+    "facebook": PlatformConfig(
+        key="facebook",
+        label="Facebook",
+        login_url="https://www.facebook.com/login/",
+        login_url_marker="/login",
+        # Best-effort selector for the composer opener on the home feed
+        # ("What's on your mind, <name>?") -- the aria-label includes the
+        # logged-in user's own name, so matching on the stable `aria-haspopup`
+        # attribute of that same control avoids hardcoding a name. NOT
+        # independently verified against a live account -- see the module
+        # docstring above.
+        logged_in_selector='div[aria-label="Create a post"]',
     ),
 }
 

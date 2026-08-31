@@ -20,6 +20,10 @@ approved posts to **YouTube, X, Bluesky, LinkedIn, and Instagram**. Not a hosted
 everything runs on the user's own machine, against their own logged-in sessions. X publishes
 through a saved, human-created browser session (like Bluesky/LinkedIn/Instagram), not the X API.
 
+Beyond those five, the repo also carries **community-contributed extras** -- TikTok and Facebook
+-- held to a lower bar of live verification. See section 7 below and README.md's "Community
+extras" section before telling a user either one just works.
+
 ```
 idea or media -> Claude prepares the campaign -> review -> explicit confirmation -> publish to YouTube / X / Bluesky / LinkedIn / Instagram
 ```
@@ -210,15 +214,16 @@ Three kinds of job, three kinds of skill — don't reach for the wrong one:
   jump to onboarding just because a platform skill exists; only reach for `onboard-<platform>` if
   the connection genuinely isn't there yet.
 - **`troubleshoot-publishing`** — diagnose a publish that failed, hung, produced an uncertain
-  result, or may have duplicated, across any of the five platforms. Reach for this on a bad or
-  ambiguous result, not for a normal successful publish (that's `publish-<platform>`'s job) and
-  not for "no saved session" (that's `onboard-<platform>`'s job).
+  result, or may have duplicated, across any of the five core platforms or the community extras
+  (TikTok, Facebook). Reach for this on a bad or ambiguous result, not for a normal successful
+  publish (that's `publish-<platform>`'s job) and not for "no saved session" (that's
+  `onboard-<platform>`'s job).
 
 **`.claude/skills/platform-login/SKILL.md`** — the shared login mechanic behind X, Bluesky,
-LinkedIn, and Instagram: a plain, non-automated Chrome window opens, the human logs in themselves,
-closes the window, and the session gets saved to `profiles/<platform>/` for every future publish.
-Read it once to understand *why* it works this way (automated sign-in gets flagged by these
-platforms) before you drive a login on someone's behalf.
+LinkedIn, Instagram, and Facebook: a plain, non-automated Chrome window opens, the human logs in
+themselves, closes the window, and the session gets saved to `profiles/<platform>/` for every
+future publish. Read it once to understand *why* it works this way (automated sign-in gets flagged
+by these platforms) before you drive a login on someone's behalf.
 
 **One onboarding skill per platform** — each takes a platform from zero to a verified real post,
 and is where you should start whenever a user wants a platform connected:
@@ -233,6 +238,17 @@ and is where you should start whenever a user wants a platform connected:
 - `.claude/skills/onboard-youtube/SKILL.md` — YouTube: the odd one out. OAuth + the official Data
   API, not browser automation at all — Google blocks automated sign-in outright, so this walks
   through creating a Google Cloud OAuth client, then a verified first publish.
+
+**Community extras** (a lower bar of live verification than the five above — see README.md's
+"Community extras" section):
+
+- `.claude/skills/onboard-tiktok/SKILL.md` — TikTok: OAuth + the official Content Posting API, not
+  browser automation. Covers developer-app registration, the unaudited-app privacy restriction,
+  and a hard-won guardrail against rapid repeated real publish attempts.
+- `.claude/skills/onboard-facebook/SKILL.md` — Facebook: login, then a roundtrip test — but read
+  this one's "Before you start" section first. **Unlike every other platform here, this has not
+  been exercised against a live account at all**; the first login and first publish are the live
+  test of the code itself.
 
 **One publishing skill per platform** — each carries that platform's copy conventions, media
 handling, and hard-won operational quirks for an already-connected account:
@@ -249,8 +265,13 @@ handling, and hard-won operational quirks for an already-connected account:
   with the same caution as untested code. Also covers the crop, cover-frame, and caption-typeahead
   quirks.
 - `.claude/skills/publish-youtube/SKILL.md` — title/description limits, the two-Google-account
-  trap, and known defects in the upload path (hardcoded category, flaky tag persistence, no
-  thumbnail support).
+  trap, `--category-id` for overriding the default category, and known defects in the upload path
+  (flaky tag persistence, no thumbnail support).
+- `.claude/skills/publish-tiktok/SKILL.md` — the unaudited-app visibility restriction and its
+  sanctioned manual per-post public-visibility workaround, plus the rapid-testing guardrail above.
+- `.claude/skills/publish-facebook/SKILL.md` — **experimental, unverified**. Every selector is a
+  first-draft guess; do a text-only test post before ever attaching media, and don't tell a user a
+  Facebook post "should just work" the way the other platforms now do.
 
 **`.claude/skills/troubleshoot-publishing/SKILL.md`** — the shared diagnostic checklist for a
 publish that didn't clearly succeed: read the script's error first, look at the actual browser
@@ -294,18 +315,27 @@ user's behalf. If you arrived here from an ordinary "publish my video" conversat
 certainly want [section 4](#4-operating-socials-studio-the-operator-journey) instead.
 
 - `auth/platforms.py` — per-platform login config (URLs, logged-in detection). X (Twitter),
-  Instagram, Bluesky, and LinkedIn are all registered and active. Don't inspect or revive the
-  remaining content-strategy playbooks in `.claude/dormant/` — those are left dormant on purpose,
-  see `.claude/dormant/README.md`.
-- `auth/login_wizard.py` — interactive login, saves a session per platform.
+  Instagram, Bluesky, LinkedIn, and Facebook are all registered and active. Facebook's entry is a
+  community extra, unverified against a live account — see its inline comment. Don't inspect or
+  revive the remaining content-strategy playbooks in `.claude/dormant/` — those are left dormant on
+  purpose, see `.claude/dormant/README.md`.
+- `auth/login_wizard.py` — interactive login, saves a session per platform. `FORCE_ENGLISH_LOCALE`
+  / `FORCE_ENGLISH_ARGS` pin every browser this repo launches (login, verification, and every
+  `publish_<platform>.py`'s own context) to English, since every `logged_in_selector` and
+  publish-flow selector is an English string — see its module docstring.
 - `auth/publish_safety.py` — the shared safe-by-default gate every publisher uses. See its
   docstring before touching any `publish_<platform>.py` file's dry-run/confirm logic.
 - `auth/publish_youtube.py`, `auth/publish_x.py`, `auth/publish_bluesky.py`,
-  `auth/publish_linkedin.py`, `auth/publish_instagram.py` — one publisher per supported platform.
-  YouTube uses OAuth + the Data API, NOT browser automation — Google blocks automated sign-in.
+  `auth/publish_linkedin.py`, `auth/publish_instagram.py` — one publisher per core supported
+  platform. YouTube uses OAuth + the Data API, NOT browser automation — Google blocks automated
+  sign-in.
+- `auth/publish_tiktok.py`, `auth/publish_facebook.py` — community extras (see README.md's
+  "Community extras" section). TikTok uses OAuth + the Content Posting API, like YouTube. Facebook
+  uses a saved browser session like X/Bluesky/LinkedIn/Instagram, but is new and experimental — not
+  yet exercised against a live account.
 - `doctor.py` — the health check; see its own checks before adding a new one.
-- `tests/` — 53 tests, no live credentials/network/browser use. Run `pytest` before and after any
-  change here.
+- `tests/` — over 130 tests, no live credentials/network/browser use. Run `pytest` before and
+  after any change here.
 
 Match the existing pattern for anything you touch: real Chrome (not bundled Chromium) for browser
 publishers, `auth.publish_safety.should_publish` for the safety gate, dry-run support, and be

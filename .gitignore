@@ -11,6 +11,14 @@ profiles/
 __pycache__/
 *.pyc
 
+# Local virtual environments -- never commit; this was previously missing and let an entire
+# .venv get accidentally committed on a contributor branch.
+.venv/
+venv/
+
+# Test/scratch media dropped in the repo root while developing a publisher locally
+*.mp4
+
 # Playwright MCP scratch output (snapshots, screenshots) from dev sessions
 .playwright-mcp/
 

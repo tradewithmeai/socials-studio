@@ -7,6 +7,43 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
 
 ### Added
 
+- **TikTok and Facebook, as community-contributed extras** (`auth/publish_tiktok.py`,
+  `auth/publish_facebook.py`) -- real, working implementations, held to a lower bar of live
+  verification than the five core platforms (YouTube, X, Bluesky, LinkedIn, Instagram). See
+  README.md's "Community extras" section, and the `onboard-tiktok`/`publish-tiktok`/
+  `onboard-facebook`/`publish-facebook` skills.
+  - **TikTok** publishes via OAuth + the official Content Posting API (never a browser), the same
+    shape as YouTube. `python -m auth.setup_tiktok_oauth` handles developer-app registration
+    through a verified token; `python -m auth.publish_tiktok --check-status <publish_id>` re-checks
+    an already-submitted publish without publishing again. Every post is forced to
+    private/self-only until the connected developer app passes TikTok's own audit, regardless of
+    the requested `--visibility` -- see `publish-tiktok`'s "unaudited-app reality" section for the
+    sanctioned manual per-post workaround. This has been exercised against a real developer app and
+    account, including two real upload/init failures found and fixed live (an always-chunking bug
+    that broke any video at or under TikTok's 64 MiB single-chunk threshold, and a 403 that's
+    actually a hard "the connected account must be Private" prerequisite for an unaudited app, not
+    just a visibility downgrade) -- both now surface as an actionable message instead of a raw API
+    error. **Guardrail, not just documentation:** never make repeated real (`--confirm-publish`)
+    TikTok attempts back-to-back, even to debug the same failure -- see
+    `troubleshoot-publishing`/`CLAUDE.md` for why this matters in practice, not just in theory.
+  - **Facebook** publishes to a personal profile timeline via a saved browser session, the same
+    shape as X/Bluesky/LinkedIn/Instagram. **Unlike every other publisher in this repo, it has not
+    been exercised against a live account at all** -- every selector is a first-draft guess. Treat
+    the first login and first publish as the live test of this code, not a routine connection --
+    `onboard-facebook`, `publish-facebook`, and `troubleshoot-publishing` all say so explicitly.
+  - Added Facebook to `auth/platforms.py`, `doctor.py`'s session checks, and the shared
+    safe-by-default test suite; added a dedicated TikTok OAuth check group to `doctor.py`
+    (`python doctor.py --tiktok`). Still safe by default either way -- `--confirm-publish` is
+    required for a real publish on both, exactly as for every other platform.
+- **YouTube's upload category is no longer hardcoded.** `auth/publish_youtube.py` gained
+  `--category-id` (default unchanged: `22`, People & Blogs) -- closes a previously-documented
+  defect in the upload path.
+- **Every browser this repo launches for X, Bluesky, LinkedIn, and Instagram publishing is now
+  forced to English**, not just the login-wizard's own verification step. Extends the existing
+  `fix/non-english-onboarding` locale fix (`auth/login_wizard.py`'s `FORCE_ENGLISH_LOCALE`) to each
+  publisher's own `launch_persistent_context` call -- a session established under a forced-English
+  login could still hit the same class of selector failure at actual publish time, since that
+  browser context never inherited the same locale pin.
 - **Guided installers for Windows, macOS, and Linux** (`installer/`), aimed at someone with a
   Claude subscription but no GitHub, Git, or Python experience. `Socials-Studio-Setup.exe`
   (Windows), plus `.zip`/`.tar.gz` installer bundles for macOS/Linux, are built by CI (see

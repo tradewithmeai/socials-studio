@@ -59,6 +59,15 @@ TOKEN_PATH = REPO_ROOT / "profiles" / "youtube" / "token.json"
 
 VALID_VISIBILITY = {"private", "unlisted", "public"}
 
+# YouTube Data API's videoCategories are fixed numeric IDs (see
+# https://developers.google.com/youtube/v3/docs/videoCategories), not free text. "22" (People &
+# Blogs) is kept as the default to preserve prior behavior for anyone already calling this
+# without --category-id. A few other common ones, for reference: "20" Gaming, "24" Entertainment,
+# "27" Education, "28" Science & Technology. This is not validated against the live API (that
+# would cost an extra network call on every dry run) -- an invalid ID is rejected by YouTube
+# itself at upload time, not here.
+DEFAULT_CATEGORY_ID = "22"
+
 # Verbatim text required by the YouTube API Services Terms of Service, Section 9.1(i), for any
 # third-party application that lets a user upload video: https://developers.google.com/youtube/terms/api-services-terms-of-service
 # The bracketed URL placeholder in the ToS's own text is resolved to the desktop/non-mobile
@@ -107,6 +116,7 @@ def publish_youtube(
     confirm_publish: bool = False,
     made_for_kids: bool | None = None,
     acknowledge_upload_terms: bool = False,
+    category_id: str = DEFAULT_CATEGORY_ID,
 ) -> dict:
     do_publish = should_publish(dry_run=dry_run, confirm_publish=confirm_publish)
 
@@ -128,6 +138,7 @@ def publish_youtube(
             "description": description,
             "visibility": visibility,
             "made_for_kids": made_for_kids,
+            "category_id": category_id,
             "token_found": token_exists,
             "message": (
                 (NOT_PUBLISHED_NOTE if not dry_run else "Dry run requested explicitly.")
@@ -181,7 +192,12 @@ def publish_youtube(
 
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
     body = {
-        "snippet": {"title": title, "description": description, "tags": tag_list, "categoryId": "22"},
+        "snippet": {
+            "title": title,
+            "description": description,
+            "tags": tag_list,
+            "categoryId": category_id,
+        },
         "status": {
             "privacyStatus": visibility,
             "selfDeclaredMadeForKids": made_for_kids,
@@ -204,6 +220,7 @@ def publish_youtube(
         "status": "published" if visibility == "public" else visibility,
         "visibility": visibility,
         "made_for_kids": made_for_kids,
+        "category_id": category_id,
         "url": url,
         "title": title,
     }
@@ -257,6 +274,16 @@ def main() -> None:
         "(printed unconditionally by this tool on every real-upload attempt, see "
         "UPLOAD_TERMS_NOTICE) was shown and accepted. Not required for --dry-run.",
     )
+    parser.add_argument(
+        "--category-id",
+        dest="category_id",
+        default=DEFAULT_CATEGORY_ID,
+        help="YouTube videoCategories numeric ID (see "
+        "https://developers.google.com/youtube/v3/docs/videoCategories). Defaults to "
+        f"'{DEFAULT_CATEGORY_ID}' (People & Blogs). Common ones: '20' Gaming, '24' "
+        "Entertainment, '27' Education, '28' Science & Technology. Not validated locally -- "
+        "an invalid ID is rejected by YouTube itself at upload time.",
+    )
     args = parser.parse_args()
 
     made_for_kids = args.made_for_kids
@@ -271,6 +298,7 @@ def main() -> None:
         confirm_publish=args.confirm_publish,
         made_for_kids=made_for_kids,
         acknowledge_upload_terms=args.acknowledge_upload_terms,
+        category_id=args.category_id,
     )
     print(json.dumps(result, indent=2))
 

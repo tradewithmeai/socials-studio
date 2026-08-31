@@ -2,7 +2,7 @@
 """Check the setup that actually breaks, and say exactly how to fix it.
 
     python doctor.py              # run every check
-    python doctor.py --youtube    # one group: sessions | youtube | media | repo
+    python doctor.py --youtube    # one group: sessions | youtube | tiktok | media | repo
     python doctor.py --quiet      # only failures and warnings
 
 Written because the same handful of misconfigurations get rediscovered by hand, one
@@ -28,10 +28,13 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent
 PROFILES_DIR = REPO_ROOT / "profiles"
 YOUTUBE_TOKEN = PROFILES_DIR / "youtube" / "token.json"
+TIKTOK_TOKEN = PROFILES_DIR / "tiktok" / "token.json"
 
-# Platforms that use a saved browser session. YouTube is deliberately absent: it uses
-# OAuth + the official Data API and never touches a browser profile.
-BROWSER_PLATFORMS = ["instagram", "bluesky", "linkedin", "x"]
+# Platforms that use a saved browser session. YouTube and TikTok are deliberately absent: both
+# use OAuth + an official API and never touch a browser profile. Facebook is a community-
+# contributed extra (see README.md's "Community extras" section) -- unverified against a live
+# account, but it authenticates the same saved-browser-session way as the rest of this list.
+BROWSER_PLATFORMS = ["instagram", "bluesky", "linkedin", "x", "facebook"]
 
 PASS, WARN, FAIL, SKIP = "PASS", "WARN", "FAIL", "SKIP"
 _MARK = {PASS: "[ok]  ", WARN: "[warn]", FAIL: "[FAIL]", SKIP: "[skip]"}
@@ -238,6 +241,84 @@ def _check_channel(g: str) -> None:
                " — confirm that is the channel you publish to.")
 
 
+# ---------------------------------------------------------------- tiktok oauth (community extra)
+
+def check_tiktok() -> None:
+    g = "tiktok"
+
+    if not TIKTOK_TOKEN.exists():
+        record(g, WARN, "TikTok connected",
+               "No token yet. TikTok uses OAuth + the Content Posting API, never a browser.\n"
+               "    Fix: python -m auth.setup_tiktok_oauth --client-secrets path/to/tiktok_client.json")
+        return
+
+    try:
+        tok = json.loads(TIKTOK_TOKEN.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        record(g, FAIL, "TikTok token readable", f"{TIKTOK_TOKEN} could not be parsed: {e}")
+        return
+    record(g, PASS, "TikTok token present", str(TIKTOK_TOKEN.relative_to(REPO_ROOT)))
+
+    if not tok.get("refresh_token"):
+        record(g, FAIL, "Refresh token stored",
+               "No refresh_token — re-authorization will be required as soon as the access "
+               "token expires.\n    Fix: re-run python -m auth.setup_tiktok_oauth")
+    else:
+        record(g, PASS, "Refresh token stored", "")
+
+    if "video.publish" not in set(tok.get("scopes") or []):
+        record(g, FAIL, "video.publish scope granted",
+               "video.publish missing — this token cannot publish.\n"
+               "    Fix: re-run setup and confirm the app actually has the scope approved.")
+    else:
+        record(g, PASS, "video.publish scope granted", "")
+
+    _check_tiktok_creator_info(g, tok)
+
+
+def _check_tiktok_creator_info(g: str, tok: dict) -> None:
+    """Confirms the token actually authenticates against a real creator account, and surfaces
+    TikTok's own unaudited-app reality (private-only posting) up front rather than as a
+    surprise the first time a real publish looks like it worked but nobody sees the post."""
+    access_token = tok.get("access_token")
+    if not access_token:
+        record(g, WARN, "Creator info reachable", "No access_token in the stored file.")
+        return
+
+    try:
+        import urllib.error
+        import urllib.request
+    except ImportError:  # pragma: no cover -- stdlib, effectively unreachable
+        return
+
+    req = urllib.request.Request(
+        "https://open.tiktokapis.com/v2/post/publish/creator_info/query/",
+        method="POST",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except Exception as e:  # network, auth, quota — report, never crash
+        record(g, WARN, "Creator info reachable",
+               f"Could not verify against the API: {type(e).__name__}: {str(e)[:160]}")
+        return
+
+    data = payload.get("data", {})
+    nickname = data.get("creator_nickname") or data.get("creator_username")
+    if nickname:
+        record(g, PASS, "Creator info reachable",
+               f"{nickname} — confirm that is the account you publish to.")
+    else:
+        record(g, WARN, "Creator info reachable", f"Unexpected response shape: {payload}")
+
+    record(g, WARN, "App audit status",
+           "Doctor cannot check this directly (TikTok's API doesn't expose it) — until this "
+           "app passes TikTok's own audit, every post is forced to private/self-only "
+           "regardless of the visibility requested. See the publish-tiktok skill for the "
+           "manual per-video workaround.")
+
+
 # ---------------------------------------------------------------- media tooling
 
 def check_media() -> None:
@@ -289,7 +370,7 @@ def check_repo() -> None:
 
 # ---------------------------------------------------------------- output
 
-GROUPS = {"sessions": check_sessions, "youtube": check_youtube,
+GROUPS = {"sessions": check_sessions, "youtube": check_youtube, "tiktok": check_tiktok,
           "media": check_media, "repo": check_repo}
 
 
