@@ -12,17 +12,43 @@ Tell it what you want -- a topic, a product shot, a finished video, or a rendere
 [OpenMontage](https://github.com/calesthio/OpenMontage) project -- and Socials Studio writes
 platform-specific posts for **YouTube, X, Bluesky, LinkedIn, and Instagram**, adapts each one to
 that platform's own conventions, and publishes only once you've reviewed and confirmed it.
-[Claude Code](https://claude.com/claude-code) is what actually does the writing, coordinating, and
-publishing -- Socials Studio is the local toolkit and set of skills it uses to do that safely.
+[Claude Code](https://claude.com/claude-code) is what operates the tools -- it does the writing,
+coordinating, and publishing -- and nothing is ever published without your explicit approval.
+Socials Studio is the local toolkit and set of skills Claude Code uses to do that safely.
 
 > Socials Studio is an independent community project, not affiliated with, maintained by, or
 > endorsed by OpenMontage. It works just as well with any other video, image, or idea.
 
-**Public beta — v0.1.0-beta.2.** Guided installers for Windows, macOS, and Linux are on the way
-(see [Get started](#get-started) below); this beta has been developed and tested with Claude Code
--- see [Testing status](#testing-status) before pointing it at a real account.
+**Public beta — v0.1.0-beta.4.** Guided installers for Windows, macOS, and Linux are here (see
+[Get started](#get-started) below); this beta has been developed and tested with Claude Code --
+see [Testing status](#testing-status) before pointing it at a real account.
 
----
+## Download Socials Studio
+
+**[Download Socials Studio](https://solvx.uk/socials-studio)** -- the guided download experience,
+with an installer for each operating system and no GitHub or Git required.
+
+Or grab **v0.1.0-beta.4** directly from GitHub Releases:
+
+- **Windows (recommended):** [`Socials-Studio-Setup.exe`](https://github.com/tradewithmeai/socials-studio/releases/download/v0.1.0-beta.4/Socials-Studio-Setup.exe)
+  -- no GitHub, Git, or existing Python installation needed; Python is set up for you
+  automatically. The installer isn't code-signed yet, so Windows may show a SmartScreen
+  "unrecognized publisher" warning -- that's expected for now.
+- **macOS:** [`Socials-Studio-macOS.zip`](https://github.com/tradewithmeai/socials-studio/releases/download/v0.1.0-beta.4/Socials-Studio-macOS.zip)
+  -- needs a system Python 3.10+ already present.
+- **Linux:** [`Socials-Studio-Linux.tar.gz`](https://github.com/tradewithmeai/socials-studio/releases/download/v0.1.0-beta.4/Socials-Studio-Linux.tar.gz)
+  -- needs a system Python 3.10+ already present, and real Google Chrome (not Chromium --
+  `chromium`/`chromium-browser` aren't supported; the design depends on real Chrome).
+
+Either way, you'll still need [Claude Code](https://claude.com/claude-code) access and to sign in
+with a qualifying Claude account -- the installer can't do that part for you, and it never touches
+your social media accounts, logs in anywhere, or publishes anything during setup. See
+[Testing status](#testing-status) below for exactly what's been verified on each platform before
+pointing it at a real account.
+
+Prefer the full walkthrough, checksums, and platform-by-platform detail? Use the
+[Releases page](https://github.com/tradewithmeai/socials-studio/releases/tag/v0.1.0-beta.4) or
+[solvx.uk/socials-studio](https://solvx.uk/socials-studio).
 
 ## Get started
 
@@ -31,53 +57,39 @@ without Claude Code, since Claude is what actually reads your request, writes th
 the publishers. Two ways to get set up, both ending in the same place: a working Claude Code
 session, open in this project, ready to talk to.
 
-### Already use Claude Code? Just ask it.
-
-If you already have [Claude Code](https://claude.com/claude-code) installed and signed in, open a
-terminal anywhere and say:
-
-> "Clone `https://github.com/tradewithmeai/socials-studio` and set it up for me."
-
-Claude will clone the repository, explain each setup step before running it (a Python virtual
-environment, dependencies, a health check), and wait for your yes each time -- nothing happens
-silently. No separate installer needed for this route.
-
 ### New to all this? Use the guided installer.
 
-Download the installer for your operating system and run it -- no GitHub account or Git required
-on any platform:
+This is the [Download Socials Studio](#download-socials-studio) section above -- download the
+installer for your operating system and run it, no GitHub account or Git required on any platform.
+The installer copies the project onto your machine, checks for
+[Claude Code](https://claude.com/claude-code) and Google Chrome, and prepares the Python
+environment Socials Studio runs in. If Claude Code isn't found, it offers to install it for you --
+on Windows, as an unchecked opt-in checkbox on the installer's own finish page (via WinGet if
+available, otherwise Anthropic's official installer, and only if you check the box); on
+macOS/Linux, as a yes/no prompt in the terminal. Declining either is fine -- the Socials Studio
+launcher is installed either way, and Claude Code is still required before you can use it. This
+project never bundles or redistributes Claude Code itself; it only offers to run Anthropic's own
+official installer, and only with your explicit say-so. It finishes by opening a Socials Studio
+launcher; the first time you run it, Claude introduces itself, explains what it can do, and offers
+to walk you through connecting your first platform.
 
-- **Windows:** `Socials-Studio-Setup.exe` -- Python is set up for you automatically, no Python
-  knowledge needed.
-- **macOS:** `Socials-Studio-macOS.zip` (unzip, then run `install.sh`) -- needs a system Python
-  3.10+ already present (common on modern Macs); the installer checks the real version, not just
-  a filename, and tells you exactly how to get one if it's missing.
-- **Linux:** `Socials-Studio-Linux.tar.gz` (extract, then run `install.sh`) -- same Python
-  requirement and version check as macOS.
+### Already use Claude Code? Install via the repository instead.
 
-Grab the latest from the [Releases page](https://github.com/tradewithmeai/socials-studio/releases).
-The installer copies the project onto your machine, checks for [Claude Code](https://claude.com/claude-code)
-and Google Chrome, and prepares the Python environment Socials Studio runs in. If Claude Code
-isn't found, it offers to install it for you -- on Windows, as an unchecked opt-in checkbox on
-the installer's own finish page (via WinGet if available, otherwise Anthropic's official
-installer, and only if you check the box); on macOS/Linux, as a yes/no prompt in the terminal.
-Declining either is fine -- the Socials Studio launcher is installed either way, and Claude Code
-is still required before you can use it. This project never bundles or redistributes Claude Code
-itself; it only offers to run Anthropic's own official installer, and only with your explicit
-say-so. It finishes by opening a Socials Studio launcher; the first time you run it, Claude
-introduces itself, explains what it can do, and offers to walk you through connecting your first
-platform.
+The secondary, technical route -- clone the repository and let Claude Code set it up:
 
-You'll still need to sign in to Claude with a qualifying account -- the installer can't do that
-part for you, and it never touches your social media accounts, logs in anywhere, or publishes
-anything during setup.
+```bash
+git clone https://github.com/tradewithmeai/socials-studio.git
+cd socials-studio
+claude
+```
 
-*(See [Testing status](#testing-status) below for exactly what's been verified on each platform --
-none of the three is claimed as fully verified yet. The Windows installer is unsigned for now, so
-Windows may show an "unrecognized publisher" warning; that's expected until this project has a
-code-signing certificate.)*
+Once Claude Code is open in the project, just ask it to set things up -- for example:
 
----
+> "Set this project up for me."
+
+Claude will explain each setup step before running it (a Python virtual environment, dependencies,
+a health check) and wait for your yes each time -- nothing happens silently. No separate installer
+needed for this route.
 
 ## What this is
 
@@ -227,10 +239,14 @@ platform coverage, but it is not the same as a person installing this on their o
 actually launching Socials Studio. Do not read any of the three as fully verified until that's
 happened:
 
-- **Windows:** automated build and installation tested; awaiting human test on a normal Windows
-  machine.
+- **Windows:** the `v0.1.0-beta.3` installer was installed and launched successfully on a real
+  Windows 11 machine -- existing Claude Code detection and launch into Socials Studio were
+  confirmed. The optional "install Claude Code for me" route has passed automated Windows CI
+  testing, but hasn't yet been tested by a person on a machine without Claude Code already
+  installed. The newly built `v0.1.0-beta.4` binary hasn't received a separate human hardware
+  retest of its own yet.
 - **Linux:** installer mechanics tested on Ubuntu 24.04 x64; real Chrome/account publishing not
-  tested through this package.
+  tested through this package. Requires real Google Chrome, not Chromium.
 - **macOS:** automated runner test only; no human hardware test received.
 
 If you try any of these on real hardware, a [beta test report](#reporting-problems--requesting-features)

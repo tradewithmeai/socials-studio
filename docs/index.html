@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Socials Studio — An agentic social media studio for Claude Code</title>
-<meta name="description" content="Socials Studio is an independent, local-first agentic social media studio operated through Claude Code. Give it an idea, a campaign brief, or finished media -- it creates platform-specific content, coordinates a multi-platform campaign, reviews it with you, and publishes approved posts to YouTube, X, Bluesky, LinkedIn and Instagram. Works with OpenMontage output, or any other media. Not affiliated with, maintained by, or endorsed by OpenMontage. Public beta v0.1.0-beta.2.">
+<meta name="description" content="Socials Studio is an independent, local-first agentic social media studio operated through Claude Code. Give it an idea, a campaign brief, or finished media -- it creates platform-specific content, coordinates a multi-platform campaign, reviews it with you, and publishes approved posts to YouTube, X, Bluesky, LinkedIn and Instagram. Works with OpenMontage output, or any other media. Not affiliated with, maintained by, or endorsed by OpenMontage. Public beta v0.1.0-beta.4.">
 <link rel="canonical" href="https://tradewithmeai.github.io/socials-studio/">
 <meta property="og:title" content="Socials Studio — An agentic social media studio for Claude Code">
-<meta property="og:description" content="An independent, local-first agentic social media studio operated through Claude Code: create, coordinate, review and publish a campaign across YouTube, X, Bluesky, LinkedIn and Instagram. Works with OpenMontage output, or any other media. Public beta v0.1.0-beta.2.">
+<meta property="og:description" content="An independent, local-first agentic social media studio operated through Claude Code: create, coordinate, review and publish a campaign across YouTube, X, Bluesky, LinkedIn and Instagram. Works with OpenMontage output, or any other media. Public beta v0.1.0-beta.4.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://tradewithmeai.github.io/socials-studio/">
 <meta name="twitter:card" content="summary">
@@ -22,7 +22,7 @@
   "applicationCategory": "MultimediaApplication",
   "operatingSystem": "Windows, macOS, Linux",
   "url": "https://tradewithmeai.github.io/socials-studio/",
-  "softwareVersion": "0.1.0-beta.2",
+  "softwareVersion": "0.1.0-beta.4",
   "license": "https://github.com/tradewithmeai/socials-studio/blob/main/LICENSE",
   "codeRepository": "https://github.com/tradewithmeai/socials-studio",
   "programmingLanguage": "Python",
@@ -219,10 +219,11 @@
       you've seen it and said yes.
     </p>
     <p class="lede" style="font-size:0.92rem; margin-top:-12px;">
-      <strong>Claude Code</strong> supplies the intelligence: it writes the copy, adapts it per
-      platform, and drives the publishers — Socials Studio is the local, open-source toolkit it
-      uses to do that safely. Already have Claude Code? Just ask it to set this up. New to all
-      this? A guided installer gets you there without touching GitHub, Git, or Python yourself.
+      <strong>Claude Code</strong> operates the tools: it writes the copy, adapts it per platform,
+      and drives the publishers — Socials Studio is the local, open-source toolkit it uses to do
+      that safely, and nothing is ever published without your explicit approval. New to all this?
+      Download the guided installer below — no GitHub, Git, or Python needed. Already have Claude
+      Code? Install via the repository instead — the secondary, technical route.
     </p>
     <p class="lede" style="font-size:0.85rem; margin-top:-12px;">
       Socials Studio's own data stays local to your machine — Claude Code is a separate service
@@ -230,18 +231,24 @@
       <a href="https://github.com/tradewithmeai/socials-studio/blob/main/PRIVACY.md">PRIVACY.md</a>
       for the distinction.
     </p>
-    <div class="beta-pill">Public beta v0.1.0-beta.2</div>
+    <div class="beta-pill">Public beta v0.1.0-beta.4</div>
     <div class="btn-row">
-      <a class="btn btn-primary" href="https://github.com/tradewithmeai/socials-studio">★ Star on GitHub</a>
-      <a class="btn btn-secondary" href="https://github.com/tradewithmeai/socials-studio/releases/tag/v0.1.0-beta.2">Get the public beta</a>
-      <a class="btn btn-secondary" href="https://claude.com/claude-code">Install Claude Code CLI</a>
+      <a class="btn btn-primary" href="https://github.com/tradewithmeai/socials-studio/releases/download/v0.1.0-beta.4/Socials-Studio-Setup.exe">Download for Windows</a>
+      <a class="btn btn-secondary" href="https://github.com/tradewithmeai/socials-studio/releases/download/v0.1.0-beta.4/Socials-Studio-macOS.zip">Download for macOS</a>
+      <a class="btn btn-secondary" href="https://github.com/tradewithmeai/socials-studio/releases/download/v0.1.0-beta.4/Socials-Studio-Linux.tar.gz">Download for Linux</a>
+    </div>
+    <div class="btn-row" style="margin-top:12px;">
+      <a class="btn btn-secondary" href="https://solvx.uk/socials-studio">Guided download experience</a>
+      <a class="btn btn-secondary" href="https://github.com/tradewithmeai/socials-studio/releases/tag/v0.1.0-beta.4">Get the public beta</a>
+      <a class="btn btn-secondary" href="#get-started">Install with Claude Code</a>
+      <a class="btn btn-secondary" href="https://github.com/tradewithmeai/socials-studio">★ Star on GitHub</a>
       <a class="btn btn-secondary" href="https://github.com/tradewithmeai/socials-studio/issues/new?template=bug_report.md">Report a problem</a>
       <a class="btn btn-secondary" href="https://github.com/tradewithmeai/socials-studio/issues/new?template=beta_testing.md">Share test results</a>
     </div>
   </div>
 </header>
 
-<section>
+<section id="get-started">
   <div class="wrap">
     <h3>Get started</h3>
     <p>
@@ -249,36 +256,51 @@
       what actually writes and publishes your posts. Two ways in, both ending at the same place: a
       working Claude Code session, open in this project.
     </p>
-    <p><strong>Already use Claude Code?</strong> Open a terminal and just ask it:</p>
-    <blockquote style="border-left:3px solid var(--accent); margin:0 0 16px; padding:4px 0 4px 16px; color:var(--text);">
-      "Clone <code>https://github.com/tradewithmeai/socials-studio</code> and set it up for me."
-    </blockquote>
-    <p style="font-size:0.92rem;">
-      Claude will explain each setup step (a Python virtual environment, dependencies, a health
-      check) and wait for your yes each time — nothing happens silently.
-    </p>
-    <p><strong>New to all this?</strong> Download the installer for your system and run it — no
-      GitHub account or Git required on any platform:</p>
+    <p><strong>New to all this?</strong> Download Socials Studio — no GitHub account or Git
+      required on any platform:</p>
     <ul style="color: var(--text-muted);">
-      <li><strong>Windows:</strong> <code>Socials-Studio-Setup.exe</code> — sets up Python for you automatically, no Python knowledge needed</li>
-      <li><strong>macOS:</strong> <code>Socials-Studio-macOS.zip</code> — unzip, run <code>install.sh</code>; needs a system Python 3.10+ already present</li>
-      <li><strong>Linux:</strong> <code>Socials-Studio-Linux.tar.gz</code> — extract, run <code>install.sh</code>; same Python requirement as macOS</li>
+      <li><strong>Windows (recommended):</strong>
+        <a href="https://github.com/tradewithmeai/socials-studio/releases/download/v0.1.0-beta.4/Socials-Studio-Setup.exe"><code>Socials-Studio-Setup.exe</code></a>
+        — sets up Python for you automatically, no Python knowledge needed. Not code-signed yet, so
+        Windows may show a SmartScreen "unrecognized publisher" warning — that's expected for now.</li>
+      <li><strong>macOS:</strong>
+        <a href="https://github.com/tradewithmeai/socials-studio/releases/download/v0.1.0-beta.4/Socials-Studio-macOS.zip"><code>Socials-Studio-macOS.zip</code></a>
+        — unzip, run <code>install.sh</code>; needs a system Python 3.10+ already present.</li>
+      <li><strong>Linux:</strong>
+        <a href="https://github.com/tradewithmeai/socials-studio/releases/download/v0.1.0-beta.4/Socials-Studio-Linux.tar.gz"><code>Socials-Studio-Linux.tar.gz</code></a>
+        — extract, run <code>install.sh</code>; needs a system Python 3.10+ already present, and
+        real Google Chrome (not Chromium — <code>chromium</code>/<code>chromium-browser</code>
+        aren't supported).</li>
     </ul>
     <p style="font-size:0.92rem;">
-      Grab the latest from the
-      <a href="https://github.com/tradewithmeai/socials-studio/releases">Releases page</a>. The
-      installer checks for Chrome and Claude Code, and offers to install Claude Code for you if
-      it's missing — on Windows, as an unchecked opt-in checkbox on the finish page (WinGet if
-      available, otherwise Anthropic's official installer); on macOS/Linux, as a yes/no prompt.
-      Declining is fine either way — the launcher installs regardless, Claude Code just needs to
-      be installed before you can use it. It finishes by opening a launcher — the first time you
-      run it, Claude introduces itself and offers to walk you through connecting your first
-      platform. It never logs into a social platform or publishes anything during setup, and never
-      bundles or redistributes Claude Code itself — only Anthropic's own official installer, only
-      with your say-so.
-      <em>CI builds and smoke-tests all three installers on GitHub's own runners before merge, but
-      that isn't the same as a person installing this on real hardware — see the README's testing
-      status for exactly what's verified on each platform; none is fully verified yet.</em>
+      Prefer a guided page with all three, checksums, and testing notes? Use
+      <a href="https://solvx.uk/socials-studio">solvx.uk/socials-studio</a> or the
+      <a href="https://github.com/tradewithmeai/socials-studio/releases/tag/v0.1.0-beta.4">Releases
+      page</a>. The installer checks for Chrome and Claude Code, and offers to install Claude Code
+      for you if it's missing — on Windows, as an unchecked opt-in checkbox on the finish page
+      (WinGet if available, otherwise Anthropic's official installer); on macOS/Linux, as a yes/no
+      prompt. Declining is fine either way — the launcher installs regardless, Claude Code just
+      needs to be installed before you can use it. It finishes by opening a launcher — the first
+      time you run it, Claude introduces itself and offers to walk you through connecting your
+      first platform. It never logs into a social platform or publishes anything during setup, and
+      never bundles or redistributes Claude Code itself — only Anthropic's own official installer,
+      only with your say-so.
+      <em>CI builds and smoke-tests all three installers on GitHub's own runners before merge. The
+      <code>v0.1.0-beta.3</code> Windows installer was also installed and launched successfully on
+      a real Windows 11 machine — the newly built <code>v0.1.0-beta.4</code> binary hasn't had a
+      separate human hardware retest of its own yet. macOS has only the automated runner test, and
+      Linux has had its mechanics (not real Chrome/account publishing) tested on Ubuntu 24.04 x64 —
+      see the README's testing status for the full picture.</em>
+    </p>
+    <p><strong>Already use Claude Code?</strong> Install via the repository instead — the
+      secondary, technical route:</p>
+    <pre style="background:var(--code-bg); border-radius:8px; padding:14px 16px; overflow-x:auto; margin:0 0 16px;"><code>git clone https://github.com/tradewithmeai/socials-studio.git
+cd socials-studio
+claude</code></pre>
+    <p style="font-size:0.92rem;">
+      Once Claude Code is open in the project, just ask it to set things up. Claude will explain
+      each setup step (a Python virtual environment, dependencies, a health check) and wait for
+      your yes each time — nothing happens silently.
     </p>
     <p style="font-size:0.92rem;">
       Either route ends with a real, human-driven login per platform (or a one-time OAuth step for
@@ -367,7 +389,7 @@
 
 <section>
   <div class="wrap">
-    <h3>Public beta — v0.1.0-beta.2</h3>
+    <h3>Public beta — v0.1.0-beta.4</h3>
     <div class="beta-box">
       <p style="margin-top:0">
         Socials Studio is being released as a public beta because it has completed real
