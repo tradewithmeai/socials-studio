@@ -204,3 +204,38 @@ def test_doctor_registers_tiktok_without_treating_it_as_a_browser_platform():
 
     assert "tiktok" not in doctor.BROWSER_PLATFORMS
     assert "tiktok" in doctor.GROUPS
+
+
+def test_doctor_refreshes_token_before_checking_creator_info(monkeypatch, tmp_path):
+    """Codex-reported regression: doctor.py's TikTok check used to send the stored access_token
+    straight to TikTok's API without ever refreshing it first -- unlike auth.publish_tiktok
+    itself, which always refreshes an expired token before a real call. A perfectly healthy,
+    refreshable token would report "unreachable" here for the mundane reason that its short-lived
+    access_token had simply expired, even though a real publish would have refreshed and
+    succeeded. check_tiktok must call _refresh_token_if_needed before the creator-info check."""
+    import doctor
+
+    token_path = tmp_path / "token.json"
+    stale_token = {
+        "access_token": "stale",
+        "refresh_token": "refresh-me",
+        "scopes": ["video.publish"],
+    }
+    token_path.write_text(json.dumps(stale_token), encoding="utf-8")
+    monkeypatch.setattr(doctor, "TIKTOK_TOKEN", token_path)
+    monkeypatch.setattr(doctor, "REPO_ROOT", tmp_path)
+
+    refreshed_token = {**stale_token, "access_token": "fresh"}
+    refresh_mock = MagicMock(return_value=refreshed_token)
+    monkeypatch.setattr("auth.publish_tiktok._refresh_token_if_needed", refresh_mock)
+
+    creator_info_mock = MagicMock()
+    monkeypatch.setattr(doctor, "_check_tiktok_creator_info", creator_info_mock)
+
+    doctor.check_tiktok()
+
+    refresh_mock.assert_called_once_with(stale_token)
+    creator_info_mock.assert_called_once()
+    # The (possibly refreshed) token, not the stale one straight off disk, must reach the
+    # creator-info check.
+    assert creator_info_mock.call_args[0][1] == refreshed_token

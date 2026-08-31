@@ -273,6 +273,16 @@ def check_tiktok() -> None:
     else:
         record(g, PASS, "video.publish scope granted", "")
 
+    # auth.publish_tiktok refreshes an expired access token before every real API call -- this
+    # check must do the same, or a perfectly healthy, refreshable token reports "unreachable"
+    # here for the mundane reason that its short-lived access_token has simply expired, even
+    # though a real publish attempt would refresh it and succeed.
+    try:
+        from auth.publish_tiktok import _refresh_token_if_needed
+        tok = _refresh_token_if_needed(tok)
+    except Exception as e:  # missing client secret, network, etc. -- report, never crash doctor
+        record(g, WARN, "Token refresh check", f"Could not refresh if needed: {type(e).__name__}: {str(e)[:160]}")
+
     _check_tiktok_creator_info(g, tok)
 
 

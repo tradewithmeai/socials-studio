@@ -235,6 +235,22 @@ def main() -> None:
 
     TOKEN_PATH.parent.mkdir(parents=True, exist_ok=True)
     TOKEN_PATH.write_text(json.dumps(token, indent=2), encoding="utf-8")
+
+    # auth/publish_tiktok.py's token-refresh step reads the client secret from exactly
+    # DEFAULT_CLIENT_SECRETS -- it has no way to know where --client-secrets originally pointed.
+    # Without this, following the documented `--client-secrets path/to/tiktok_client.json` form
+    # with a file outside profiles/tiktok/ works for the initial token exchange above, but every
+    # refresh after the access token expires fails once it can't find the secret at the hardcoded
+    # path. Copy it to the default location too (unless it's already there) so refresh always
+    # works regardless of where the source file lives.
+    client_secrets_resolved = client_secrets_path.resolve()
+    if client_secrets_resolved != DEFAULT_CLIENT_SECRETS.resolve():
+        DEFAULT_CLIENT_SECRETS.parent.mkdir(parents=True, exist_ok=True)
+        DEFAULT_CLIENT_SECRETS.write_text(
+            json.dumps(config, indent=2), encoding="utf-8"
+        )
+        print(f"Client secret also copied to {DEFAULT_CLIENT_SECRETS} (used for token refresh).")
+
     print(f"\nToken saved to {TOKEN_PATH}")
     print("TikTok publish should now work: python -m auth.publish_tiktok ...")
     print(
