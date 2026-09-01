@@ -261,6 +261,72 @@ def test_unaudited_private_account_error_is_explained(monkeypatch):
     assert "Settings and privacy" in message
 
 
+def _mock_full_publish_path(monkeypatch, tmp_path, status_data, status_error=None):
+    import auth.publish_tiktok as tiktok_module
+    """Mock every step of a real publish attempt (load/refresh token, init, upload, status
+    fetch) so publish_tiktok() can be exercised end to end with confirm_publish=True, entirely
+    offline -- no network, no credentials, no TikTok account involved."""
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"not a real video, just needs to exist")
+
+    monkeypatch.setattr("auth.publish_tiktok._load_token", lambda: {"access_token": "tok"})
+    monkeypatch.setattr("auth.publish_tiktok._refresh_token_if_needed", lambda t: t)
+    monkeypatch.setattr("auth.publish_tiktok._upload_video_chunks", lambda *a, **k: None)
+
+    init_response = {
+        "error": {"code": "ok"},
+        "data": {"publish_id": "pub123", "upload_url": "https://upload.example/"},
+    }
+    status_response = {"error": status_error or {"code": "ok"}, "data": status_data}
+
+    def fake_api_post_json(url, access_token, body):
+        if url == tiktok_module.VIDEO_INIT_URL:
+            return init_response
+        assert url == tiktok_module.STATUS_FETCH_URL
+        return status_response
+
+    monkeypatch.setattr("auth.publish_tiktok._api_post_json", fake_api_post_json)
+    return video
+
+
+def test_real_publish_raises_on_terminal_failed_status(monkeypatch, tmp_path):
+    """Regression test for a Codex-reported bug found before any live test: publish_tiktok()
+    used to always return "status": "uploaded" regardless of what the post-upload status check
+    actually said -- reporting a rejected post as if it succeeded unless the caller happened to
+    manually inspect the nested status_response. A terminal FAILED status (TikTok's own
+    documented value, with a fail_reason field) must raise, not silently succeed."""
+    video = _mock_full_publish_path(
+        monkeypatch, tmp_path, status_data={"status": "FAILED", "fail_reason": "video_format_check_failed"}
+    )
+    with pytest.raises(RuntimeError, match="video_format_check_failed"):
+        publish_tiktok(str(video), title="t", confirm_publish=True)
+
+
+def test_real_publish_reports_still_processing_honestly(monkeypatch, tmp_path):
+    """A status short of PUBLISH_COMPLETE (e.g. still PROCESSING_UPLOAD moments after the upload
+    finished) must not be reported as unconditionally "uploaded"/done -- the caller needs to know
+    to check again later via --check-status, not assume success."""
+    video = _mock_full_publish_path(monkeypatch, tmp_path, status_data={"status": "PROCESSING_UPLOAD"})
+    result = publish_tiktok(str(video), title="t", confirm_publish=True)
+    assert result["status"] == "processing"
+    assert "PROCESSING_UPLOAD" in result["note"]
+    assert "--check-status" in result["note"]
+
+
+def test_real_publish_reports_success_on_publish_complete(monkeypatch, tmp_path):
+    video = _mock_full_publish_path(monkeypatch, tmp_path, status_data={"status": "PUBLISH_COMPLETE"})
+    result = publish_tiktok(str(video), title="t", confirm_publish=True)
+    assert result["status"] == "published"
+
+
+def test_real_publish_raises_on_status_check_api_error(monkeypatch, tmp_path):
+    video = _mock_full_publish_path(
+        monkeypatch, tmp_path, status_data={}, status_error={"code": "internal_error", "message": "..."}
+    )
+    with pytest.raises(RuntimeError, match="status check failed"):
+        publish_tiktok(str(video), title="t", confirm_publish=True)
+
+
 def test_check_publish_status_wires_token_and_publish_id_through(monkeypatch):
     """Regression test for a real publish_id that came back 'PROCESSING_UPLOAD' right after
     upload (a transient state) and never actually appeared in the TikTok app -- the original code

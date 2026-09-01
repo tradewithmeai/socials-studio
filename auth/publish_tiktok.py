@@ -39,6 +39,21 @@ real upload of a large video as still-unverified for that path specifically -- d
 second chunking bug (total_chunk_count computed via ceil division with an undersized trailing
 chunk, instead of TikTok's documented floor-division-plus-oversized-final-chunk rule) was found
 and fixed by code review before ever reaching a live test. See _compute_chunking's docstring.
+
+## Known, disclosed gap: creator-level restrictions aren't checked before publishing
+
+A creator's own account settings can restrict what a post is allowed to request -- for example,
+an account with comments disabled globally may reject `disable_comment=False` (this module's
+default) at the API level, per TikTok's `creator_info/query` endpoint (the same one `doctor.py`'s
+TikTok check already queries, for a different purpose: confirming the token authenticates against
+a real account). This module does NOT currently query that endpoint before constructing
+`post_info` and validate/constrain `privacy_level`/`disable_duet`/`disable_stitch`/
+`disable_comment` against it -- so an otherwise-valid publish attempt could be rejected by an
+init-time API error for a creator with non-default restrictions. Fixing this properly needs a
+live account to confirm what TikTok's init endpoint actually does when a flag doesn't match a
+creator's restrictions (reject outright, silently ignore, or something else) -- deliberately not
+guessed here. Treat this as a real gap to work through together, live, before broader use -- not
+a hypothetical.
 """
 
 from __future__ import annotations
@@ -409,16 +424,46 @@ def publish_tiktok(
 
     status_response = _api_post_json(STATUS_FETCH_URL, access_token, {"publish_id": publish_id})
 
+    # Codex-reported regression, caught before any live test: this used to always return
+    # "status": "uploaded" regardless of what status_response actually said, even a terminal
+    # FAILED -- reporting a rejected post as if it succeeded unless the caller happened to
+    # manually inspect the nested status_response. TikTok's documented post-status values
+    # (https://developers.tiktok.com/doc/content-posting-api-reference-get-video-status):
+    # PUBLISH_COMPLETE (done), FAILED (terminal, with a fail_reason field), and several
+    # PROCESSING_* values for "still working on it" -- see check_publish_status above for
+    # re-checking one of those later. A FAILED status must raise, not silently succeed; anything
+    # short of PUBLISH_COMPLETE is honestly reported as still processing, not "uploaded" outright.
+    status_error = status_response.get("error", {})
+    if status_error.get("code") not in (None, "ok"):
+        raise RuntimeError(
+            f"TikTok status check failed for publish_id={publish_id}: {status_error}. "
+            "Do not retry blind -- use --check-status to re-check later."
+        )
+
+    tiktok_status = status_response.get("data", {}).get("status")
+    if tiktok_status == "FAILED":
+        fail_reason = status_response.get("data", {}).get("fail_reason", "unknown")
+        raise RuntimeError(
+            f"TikTok rejected this post after upload (fail_reason={fail_reason}, "
+            f"publish_id={publish_id}). Do not retry blind -- see the troubleshoot-publishing "
+            "skill before attempting another real publish."
+        )
+
     return {
         "dry_run": False,
         "platform": "tiktok",
-        "status": "uploaded",
+        "status": "published" if tiktok_status == "PUBLISH_COMPLETE" else "processing",
         "visibility": visibility,
         "privacy_level": privacy_level,
         "publish_id": publish_id,
         "title": title,
         "status_response": status_response,
-        "note": UNAUDITED_APP_NOTICE,
+        "note": UNAUDITED_APP_NOTICE + (
+            "" if tiktok_status == "PUBLISH_COMPLETE" else
+            f" Status is still '{tiktok_status}' as of this check, not yet confirmed complete -- "
+            f"use `python -m auth.publish_tiktok --check-status {publish_id}` to re-check later "
+            "rather than assuming success or retrying."
+        ),
     }
 
 

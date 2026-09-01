@@ -49,8 +49,13 @@ assume the post is stuck private forever.
   `auth.publish_safety.should_publish`, as every other publisher here).
 - `--visibility` defaults to `private`. Only mention `--visibility public` once the user
   understands it is still forced private pre-audit -- see above.
-- `--title` is capped at 2200 UTF-16 code units by TikTok's API -- not independently verified
-  against a live account by this tool; treat as a soft limit to check for until confirmed.
+- `--title` is capped at 2,200 UTF-16 code units (TikTok's documented limit) and this tool now
+  actually enforces it before publishing -- an over-length title is rejected up front, not only
+  by the real API after the video has already uploaded.
+- **This tool does not check a creator's own account restrictions before publishing.** A creator
+  with e.g. comments disabled globally may reject the default `disable_comment=False` at the API
+  level -- see the module docstring's "Known, disclosed gap" section. Confirm this together on a
+  live account before assuming every combination of flags will be accepted.
 - **Never make multiple real (`--confirm-publish`) attempts back-to-back, even to debug the same
   failure.** Confirmed live 2026-08-18: a burst of real publish attempts against a brand-new
   unaudited developer app was followed by the connected TikTok account being reset entirely (new
@@ -67,10 +72,17 @@ assume the post is stuck private forever.
 - **Post "succeeds" (a `publish_id` comes back) but is invisible to anyone but the account
   owner**: expected pre-audit behavior, not a bug -- see the unaudited-app section above. Confirm
   with the user whether they want the manual per-post public-visibility fix.
-- **Upload fails partway through a chunk**: the chunk-size default (`DEFAULT_CHUNK_SIZE` in
-  `auth/publish_tiktok.py`) is a reasonable starting point, not independently confirmed against
-  TikTok's current minimum/maximum -- if this is the failure, that constant is the first thing to
-  adjust, informed by whatever error TikTok's API actually returns.
+- **Upload fails partway through a chunk**: `MIN_CHUNK_SIZE`/`MAX_CHUNK_SIZE` in
+  `auth/publish_tiktok.py` (5 MiB / 64 MiB) are confirmed against TikTok's real Media Transfer
+  Guide, not guessed -- but chunked upload of a video over 64 MiB has not itself been exercised
+  live yet (only the single-chunk, under-64-MiB path has). Treat the first large-video upload as
+  still-unverified for that specific path.
+- **A publish "succeeds" (a `publish_id` comes back) but the video never appears**: the result's
+  own `"status"` field distinguishes this now -- `"published"` means TikTok's status check
+  reported `PUBLISH_COMPLETE`, `"processing"` means it hadn't finished yet as of that check (use
+  `--check-status` to follow up), and a terminal `FAILED` status raises an error with TikTok's own
+  `fail_reason` instead of silently returning either of those. Don't trust a bare `publish_id`
+  alone as proof of success.
 - **Token expired and refresh fails**: `profiles/tiktok/client_secret.json` must still exist (not
   just `token.json`) for a refresh to succeed -- see `onboard-tiktok`'s known failures.
 - **The connected TikTok account gets reset/wiped after several real publish attempts in a short

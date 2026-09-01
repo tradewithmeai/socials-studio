@@ -35,7 +35,7 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
     safe-by-default test suite; added a dedicated TikTok OAuth check group to `doctor.py`
     (`python doctor.py --tiktok`). Still safe by default either way -- `--confirm-publish` is
     required for a real publish on both, exactly as for every other platform.
-  - **Six further issues found by code review before any live retest, none of them guessed:**
+  - **Seven further issues found by code review before any live retest, none of them guessed:**
     (1) `auth/publish_facebook.py` never forced its browser context to English like every other
     publisher does -- fixed with the same `FORCE_ENGLISH_LOCALE` constant. (2) The documented
     `--client-secrets path/to/tiktok_client.json` setup form silently broke every token refresh
@@ -58,7 +58,17 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
     code units rather than Python character count. (6) `auth/publish_facebook.py`'s
     timeline-verification check searched the whole page's text, which could false-positive on the
     profile bio, nav text, or an older post -- scoped to `[role="article"]` post containers
-    instead.
+    instead. (7) `publish_tiktok()` always returned `"status": "uploaded"` regardless of what the
+    post-upload status check actually said -- a terminal `FAILED` response (TikTok's own
+    documented status, with a `fail_reason` field) would have been reported as if it succeeded
+    unless the caller manually inspected the nested `status_response`. Now raises on a genuine
+    `FAILED` status, and honestly reports `"processing"` rather than `"published"` for anything
+    short of TikTok's own `PUBLISH_COMPLETE`. A related, disclosed-but-unfixed gap: this module
+    still doesn't check a creator's own account restrictions (e.g. comments disabled globally)
+    against the flags it sends before publishing -- confirmed against TikTok's public docs that
+    the `creator_info/query` endpoint exposes this, but fixing it properly needs a live account to
+    confirm what the init endpoint actually does when a flag doesn't match, so it's left as an
+    explicit, documented gap rather than guessed.
 - **YouTube's upload category is no longer hardcoded.** `auth/publish_youtube.py` gained
   `--category-id` (default unchanged: `22`, People & Blogs) -- closes a previously-documented
   defect in the upload path.
