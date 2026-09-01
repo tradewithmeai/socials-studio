@@ -273,15 +273,24 @@ def check_tiktok() -> None:
     else:
         record(g, PASS, "video.publish scope granted", "")
 
-    # auth.publish_tiktok refreshes an expired access token before every real API call -- this
-    # check must do the same, or a perfectly healthy, refreshable token reports "unreachable"
-    # here for the mundane reason that its short-lived access_token has simply expired, even
-    # though a real publish attempt would refresh it and succeed.
-    try:
-        from auth.publish_tiktok import _refresh_token_if_needed
-        tok = _refresh_token_if_needed(tok)
-    except Exception as e:  # missing client secret, network, etc. -- report, never crash doctor
-        record(g, WARN, "Token refresh check", f"Could not refresh if needed: {type(e).__name__}: {str(e)[:160]}")
+    # auth.publish_tiktok refreshes an expired access token before every real API call, so a
+    # perfectly healthy, refreshable token would still succeed at real publish time even once its
+    # short-lived access_token has expired. doctor.py must not report that as broken -- but it
+    # also must not perform the refresh itself: doctor.py's own module docstring promises "Nothing
+    # here launches a browser, publishes anything, or spends money. Safe to run any time," and an
+    # actual refresh makes a live network call and writes new credentials (potentially a new
+    # refresh_token, rotating out the old one) to profiles/tiktok/token.json -- Codex-reported: a
+    # supposedly read-only health check must not have that side effect. Check staleness
+    # read-only (auth.publish_tiktok._token_is_stale, no network call, no write) and skip the live
+    # check with an informative WARN instead of refreshing.
+    from auth.publish_tiktok import _token_is_stale
+    if _token_is_stale(tok):
+        record(g, WARN, "Creator info reachable",
+               "Access token appears expired based on its own obtained_at/expires_in -- doctor.py "
+               "does not refresh it (that would write new credentials during what should be a "
+               "read-only check). A real publish attempt refreshes it automatically; if you want "
+               "to confirm right now, run a real publish or re-run setup.")
+        return
 
     _check_tiktok_creator_info(g, tok)
 

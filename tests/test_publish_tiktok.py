@@ -299,13 +299,18 @@ def test_doctor_registers_tiktok_without_treating_it_as_a_browser_platform():
     assert "tiktok" in doctor.GROUPS
 
 
-def test_doctor_refreshes_token_before_checking_creator_info(monkeypatch, tmp_path):
-    """Codex-reported regression: doctor.py's TikTok check used to send the stored access_token
-    straight to TikTok's API without ever refreshing it first -- unlike auth.publish_tiktok
-    itself, which always refreshes an expired token before a real call. A perfectly healthy,
-    refreshable token would report "unreachable" here for the mundane reason that its short-lived
-    access_token had simply expired, even though a real publish would have refreshed and
-    succeeded. check_tiktok must call _refresh_token_if_needed before the creator-info check."""
+def test_doctor_skips_creator_info_for_a_stale_token_without_refreshing_it(monkeypatch, tmp_path):
+    """Codex-reported regression, in two parts. First: doctor.py's TikTok check used to send the
+    stored access_token straight to TikTok's API without ever checking whether it had expired --
+    a perfectly healthy, refreshable token would report "unreachable" here for the mundane reason
+    that its short-lived access_token had simply expired, even though a real publish would have
+    refreshed and succeeded. Second, once fixed the obvious way (call
+    auth.publish_tiktok._refresh_token_if_needed before the live check): that function performs a
+    real network call and WRITES the refreshed credentials to profiles/tiktok/token.json --
+    exactly the side effect doctor.py's own module docstring promises it never has ("Nothing here
+    launches a browser, publishes anything, or spends money. Safe to run any time"). The correct
+    fix checks staleness read-only (_token_is_stale) and skips the live check with a WARN instead
+    of ever calling the persisting refresh helper."""
     import doctor
 
     token_path = tmp_path / "token.json"
@@ -313,13 +318,16 @@ def test_doctor_refreshes_token_before_checking_creator_info(monkeypatch, tmp_pa
         "access_token": "stale",
         "refresh_token": "refresh-me",
         "scopes": ["video.publish"],
+        "obtained_at": "2020-01-01T00:00:00+00:00",
+        "expires_in": 3600,
     }
     token_path.write_text(json.dumps(stale_token), encoding="utf-8")
     monkeypatch.setattr(doctor, "TIKTOK_TOKEN", token_path)
     monkeypatch.setattr(doctor, "REPO_ROOT", tmp_path)
 
-    refreshed_token = {**stale_token, "access_token": "fresh"}
-    refresh_mock = MagicMock(return_value=refreshed_token)
+    refresh_mock = MagicMock(side_effect=AssertionError(
+        "doctor.py must never call the persisting refresh helper -- it is not read-only"
+    ))
     monkeypatch.setattr("auth.publish_tiktok._refresh_token_if_needed", refresh_mock)
 
     creator_info_mock = MagicMock()
@@ -327,8 +335,33 @@ def test_doctor_refreshes_token_before_checking_creator_info(monkeypatch, tmp_pa
 
     doctor.check_tiktok()
 
-    refresh_mock.assert_called_once_with(stale_token)
+    refresh_mock.assert_not_called()
+    creator_info_mock.assert_not_called()
+    assert json.loads(token_path.read_text(encoding="utf-8")) == stale_token  # unchanged on disk
+
+
+def test_doctor_checks_creator_info_for_a_fresh_token(monkeypatch, tmp_path):
+    """The opposite case: a token that's still fresh must reach the live creator-info check as
+    normal, not be skipped."""
+    import doctor
+    from datetime import datetime, timedelta, timezone
+
+    token_path = tmp_path / "token.json"
+    fresh_token = {
+        "access_token": "fresh",
+        "refresh_token": "refresh-me",
+        "scopes": ["video.publish"],
+        "obtained_at": datetime.now(timezone.utc).isoformat(),
+        "expires_in": 3600,
+    }
+    token_path.write_text(json.dumps(fresh_token), encoding="utf-8")
+    monkeypatch.setattr(doctor, "TIKTOK_TOKEN", token_path)
+    monkeypatch.setattr(doctor, "REPO_ROOT", tmp_path)
+
+    creator_info_mock = MagicMock()
+    monkeypatch.setattr(doctor, "_check_tiktok_creator_info", creator_info_mock)
+
+    doctor.check_tiktok()
+
     creator_info_mock.assert_called_once()
-    # The (possibly refreshed) token, not the stale one straight off disk, must reach the
-    # creator-info check.
-    assert creator_info_mock.call_args[0][1] == refreshed_token
+    assert creator_info_mock.call_args[0][1] == fresh_token

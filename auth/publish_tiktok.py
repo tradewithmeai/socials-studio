@@ -133,22 +133,35 @@ def _load_token() -> dict:
         raise ValueError(f"TikTok token at {TOKEN_PATH} could not be read: {e}") from e
 
 
-def _refresh_token_if_needed(token: dict) -> dict:
+def _token_is_stale(token: dict) -> bool:
+    """Read-only: does this token's own obtained_at/expires_in say it has expired (with a small
+    safety margin)? Never makes a network call or writes anything -- used both by
+    _refresh_token_if_needed (to decide whether a refresh is worth attempting) and by doctor.py's
+    read-only TikTok health check (to decide whether to skip the live creator-info call with a
+    warning, WITHOUT refreshing -- see doctor.py's own module docstring: "Nothing here launches a
+    browser, publishes anything, or spends money," which a token refresh's network call and
+    on-disk write would violate)."""
     from datetime import datetime, timedelta, timezone
 
     obtained_at_raw = token.get("obtained_at")
     expires_in = token.get("expires_in")
     if not obtained_at_raw or expires_in is None:
-        return token  # can't tell if it's stale; let the API itself reject it if so
+        return False  # can't tell if it's stale; let the API itself reject it if so
 
     try:
         obtained_at = datetime.fromisoformat(obtained_at_raw)
     except ValueError:
-        return token
+        return False
 
     expiry = obtained_at + timedelta(seconds=int(expires_in))
-    if datetime.now(timezone.utc) < expiry - timedelta(minutes=2):
+    return datetime.now(timezone.utc) >= expiry - timedelta(minutes=2)
+
+
+def _refresh_token_if_needed(token: dict) -> dict:
+    if not _token_is_stale(token):
         return token  # still fresh, with a small safety margin
+
+    from datetime import datetime, timezone
 
     refresh_token = token.get("refresh_token")
     if not refresh_token:
