@@ -25,7 +25,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 from auth.chrome_setup import ensure_chrome_installed
-from auth.login_wizard import PROFILES_DIR
+from auth.login_wizard import FORCE_ENGLISH_LOCALE, PROFILES_DIR
 from auth.publish_safety import NOT_PUBLISHED_NOTE, should_publish
 
 STEP_TIMEOUT_MS = 30_000
@@ -100,10 +100,15 @@ def publish_x(
     ensure_chrome_installed()
 
     with sync_playwright() as p:
+        # Forced to English for the same reason login_wizard's verification step is -- this
+        # profile's selectors are English strings, and the platform renders them in whatever
+        # locale the browser reports if the account itself carries no stored preference. See
+        # login_wizard.py's module docstring for the live-confirmed failure this prevents.
         context = p.chromium.launch_persistent_context(
             user_data_dir=str(profile_dir),
             channel="chrome",
             headless=False,
+            locale=FORCE_ENGLISH_LOCALE,
         )
         page = context.pages[0] if context.pages else context.new_page()
 

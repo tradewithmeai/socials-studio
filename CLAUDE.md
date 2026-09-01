@@ -57,18 +57,29 @@ the publishing/auth path.
 ## Working in this repo
 
 - `auth/platforms.py` -- per-platform login config (URLs, logged-in detection). X (Twitter),
-  Instagram, Bluesky, and LinkedIn are all registered and active here.
-- `auth/login_wizard.py` -- interactive login, saves a session per platform.
+  Instagram, Bluesky, LinkedIn, and Facebook are all registered and active here. Facebook's own
+  entry is a community extra, unverified against a live account -- see its inline comment.
+- `auth/login_wizard.py` -- interactive login, saves a session per platform. `FORCE_ENGLISH_LOCALE`
+  / `FORCE_ENGLISH_ARGS` pin every browser this repo launches (login, verification, and every
+  `publish_<platform>.py`'s own context) to English -- see its module docstring for the live-
+  confirmed failure this prevents.
 - `auth/publish_safety.py` -- the shared safe-by-default gate every publisher uses. See its
   docstring before touching any `publish_<platform>.py` file's dry-run/confirm logic.
 - `auth/publish_youtube.py`, `auth/publish_x.py`, `auth/publish_bluesky.py`,
-  `auth/publish_linkedin.py`, `auth/publish_instagram.py` -- one publisher per supported platform.
-  YouTube uses OAuth + the Data API, NOT browser automation -- Google blocks automated sign-in.
-  Onboarding it from scratch goes through `.claude/skills/onboard-youtube/SKILL.md`, not the login
-  wizard. X, Bluesky, LinkedIn, and Instagram all use a saved human-created browser session via
-  Playwright, not an official API.
+  `auth/publish_linkedin.py`, `auth/publish_instagram.py` -- one publisher per core supported
+  platform. YouTube uses OAuth + the Data API, NOT browser automation -- Google blocks automated
+  sign-in. Onboarding it from scratch goes through `.claude/skills/onboard-youtube/SKILL.md`, not
+  the login wizard. X, Bluesky, LinkedIn, and Instagram all use a saved human-created browser
+  session via Playwright, not an official API.
+- `auth/publish_tiktok.py`, `auth/publish_facebook.py` -- **community extras**, held to a lower bar
+  of live verification than the five platforms above (see README.md's "Community extras"
+  section). TikTok uses OAuth + the Content Posting API, like YouTube -- onboard via
+  `.claude/skills/onboard-tiktok/SKILL.md`. Facebook uses a saved browser session like the other
+  four, but is new and **has not been exercised against a live account at all** -- treat it with
+  more caution, see `.claude/skills/onboard-facebook/SKILL.md`.
 - `.claude/skills/platform-login/SKILL.md` -- the browser-login wizard for X/Bluesky/LinkedIn/
-  Instagram (not YouTube); read it before driving a login on someone's behalf.
+  Instagram/Facebook (not YouTube or TikTok, which use OAuth); read it before driving a login on
+  someone's behalf.
 
 ## Rules for an agent operating here
 
@@ -89,6 +100,23 @@ the publishing/auth path.
   and publishes only after explicit confirmation, the same as every other platform here. Browser
   automation can break when X changes its interface, and may trigger platform restrictions --
   that's a reliability consideration to flag, not a reason to present the platform as unavailable.
+- TikTok and Facebook are **community-contributed extras** (`auth/publish_tiktok.py`,
+  `auth/publish_facebook.py`), held to a lower bar of live verification than the five core
+  platforms above -- see README.md's "Community extras" section. Say so plainly before a real
+  publish attempt on either; don't present them with the same confidence as the core five.
+- TikTok uses OAuth + the Content Posting API, never a browser. Every post is forced
+  private/self-only until the developer app passes TikTok's own audit. **Never make repeated real
+  (`--confirm-publish`) TikTok publish attempts back-to-back, even to debug the same failure** --
+  observed live during initial integration testing, a burst of real attempts against a brand-new
+  unaudited app was followed by the connected account being reset entirely (new username, zero
+  followers, no known recovery). The most likely cause is an agent retrying without being told to
+  space attempts out, not something specific to TikTok -- treat it as a hard guardrail anyway: use
+  `--check-status` (read-only) instead, space real attempts minutes apart, and stop to ask the user
+  rather than retrying live.
+- Facebook (`auth/publish_facebook.py`) is new and **experimental and unverified** -- unlike every
+  other publisher here, it has not been run against a live account at all. Say so plainly before a
+  real publish; treat the first attempt as a live test of the code itself, not a routine post, and
+  expect to fix selectors together with the user.
 - If you're extending this to a new platform's publish flow, match the existing pattern: real
   Chrome (not bundled Chromium), `auth.publish_safety.should_publish` for the safety gate, and be
   upfront in your PR/commit about whether you actually ran it against a live account.

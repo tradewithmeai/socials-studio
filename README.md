@@ -199,6 +199,20 @@ Publish videos and posts to YouTube, X (Twitter), Bluesky, LinkedIn and Instagra
 
 `python doctor.py` checks all of the above and tells you what is missing.
 
+### Community extras (experimental)
+
+Beyond the five core platforms above, this repo also carries **community-contributed extras** --
+real, working implementations, but held to a lower bar of live verification than the platforms
+above. Use them, but go in expecting to do some of the verification yourself.
+
+| Platform | How it authenticates | Publish | Notes |
+|---|---|---|---|
+| TikTok | OAuth + Content Posting API | Yes | No browser at all -- same reasoning as YouTube. Needs your own TikTok for Developers app. Every post is forced private/self-only until TikTok audits that app; making a specific post public afterward is a manual step in the TikTok app itself -- see the `publish-tiktok` skill. **Never make repeated real publish attempts back-to-back** -- see the `publish-tiktok`/`troubleshoot-publishing` skills for why |
+| Facebook | Saved browser session | Experimental | Personal profile timeline, text/image/video. **Not yet exercised against a live account at all** -- every selector is an unverified first draft; do a text-only test post before ever attaching media, and treat the first real publish as a live test of the code itself. See the `publish-facebook`/`onboard-facebook` skills |
+
+`python doctor.py --tiktok` checks the TikTok OAuth token specifically; Facebook is covered by the
+same saved-session check as the platforms above (`python doctor.py`).
+
 See [ROADMAP.md](ROADMAP.md) for what's next.
 
 ## Publishing safety
@@ -226,6 +240,11 @@ YouTube additionally requires exactly one of `--made-for-kids` / `--not-made-for
 
 This beta has been **developed with Claude Code**. Publishing has been tested for YouTube, X,
 Bluesky, LinkedIn and Instagram, including with OpenMontage-rendered video.
+
+**Community extras (TikTok, Facebook) carry a separate, lower bar of verification** -- see
+[Community extras](#community-extras-experimental) above. TikTok's publish path (upload, chunking,
+status checks) has been exercised against a real developer app and account; Facebook has not been
+run against a live account at all yet.
 
 This is exactly what the beta is for. If you run this against a real account -- with OpenMontage
 output or anything else -- please [file a beta test report](#reporting-problems--requesting-features)
@@ -315,8 +334,18 @@ changes the requested scopes, a token issued under the old ones will fail on ref
 has changed" error rather than silently keep working -- delete `profiles/youtube/token.json` and
 re-run setup if that happens.
 
-For **X, Bluesky, LinkedIn and Instagram**, log into each platform once. A real Chrome window opens
-to that platform's login page -- log in yourself, same as you normally would:
+**TikTok (community extra)** also uses OAuth, not a browser -- see the `onboard-tiktok` skill, or run:
+
+```bash
+python -m auth.setup_tiktok_oauth --client-secrets path/to/tiktok_client.json
+```
+
+(one-time; requires your own TikTok for Developers app). `python doctor.py --tiktok` checks the
+resulting token, including whether it can actually reach your creator account.
+
+For **X, Bluesky, LinkedIn, Instagram, and Facebook (community extra)**, log into each platform
+once. A real Chrome window opens to that platform's login page -- log in yourself, same as you
+normally would:
 
 ```bash
 python -m auth.login_wizard --platform bluesky
@@ -374,8 +403,10 @@ Neither is required for `--dry-run`.
 ## Troubleshooting
 
 - **`No saved <platform> session found`** -- run the login wizard for that platform first; the
-  publish command reads from `profiles/<platform>/`. This applies to X, Bluesky, LinkedIn, and
-  Instagram, which authenticate via a saved browser session.
+  publish command reads from `profiles/<platform>/`. This applies to X, Bluesky, LinkedIn,
+  Instagram, and Facebook (community extra), which authenticate via a saved browser session.
+- **`No TikTok token found`** -- TikTok (community extra) doesn't use a browser session at all;
+  run `python -m auth.setup_tiktok_oauth`. It writes `profiles/tiktok/token.json`.
 - **`No YouTube token found`** -- YouTube doesn't use a browser session at all; run
   `python -m auth.setup_youtube_oauth` first. It writes `profiles/youtube/token.json`.
 - **Chrome install fails** -- `playwright install chrome` needs network access; check your

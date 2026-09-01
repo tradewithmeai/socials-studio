@@ -7,6 +7,93 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
 
 ### Added
 
+- **TikTok and Facebook, as community-contributed extras** (`auth/publish_tiktok.py`,
+  `auth/publish_facebook.py`) -- real, working implementations, held to a lower bar of live
+  verification than the five core platforms (YouTube, X, Bluesky, LinkedIn, Instagram). See
+  README.md's "Community extras" section, and the `onboard-tiktok`/`publish-tiktok`/
+  `onboard-facebook`/`publish-facebook` skills.
+  - **TikTok** publishes via OAuth + the official Content Posting API (never a browser), the same
+    shape as YouTube. `python -m auth.setup_tiktok_oauth` handles developer-app registration
+    through a verified token; `python -m auth.publish_tiktok --check-status <publish_id>` re-checks
+    an already-submitted publish without publishing again. Every post is forced to
+    private/self-only until the connected developer app passes TikTok's own audit, regardless of
+    the requested `--visibility` -- see `publish-tiktok`'s "unaudited-app reality" section for the
+    sanctioned manual per-post workaround. This has been exercised against a real developer app and
+    account, including two real upload/init failures found and fixed live (an always-chunking bug
+    that broke any video at or under TikTok's 64 MiB single-chunk threshold, and a 403 that's
+    actually a hard "the connected account must be Private" prerequisite for an unaudited app, not
+    just a visibility downgrade) -- both now surface as an actionable message instead of a raw API
+    error. **Guardrail, not just documentation:** never make repeated real (`--confirm-publish`)
+    TikTok attempts back-to-back, even to debug the same failure -- see
+    `troubleshoot-publishing`/`CLAUDE.md` for why this matters in practice, not just in theory.
+  - **Facebook** publishes to a personal profile timeline via a saved browser session, the same
+    shape as X/Bluesky/LinkedIn/Instagram. **Unlike every other publisher in this repo, it has not
+    been exercised against a live account at all** -- every selector is a first-draft guess. Treat
+    the first login and first publish as the live test of this code, not a routine connection --
+    `onboard-facebook`, `publish-facebook`, and `troubleshoot-publishing` all say so explicitly.
+  - Added Facebook to `auth/platforms.py`, `doctor.py`'s session checks, and the shared
+    safe-by-default test suite; added a dedicated TikTok OAuth check group to `doctor.py`
+    (`python doctor.py --tiktok`). Still safe by default either way -- `--confirm-publish` is
+    required for a real publish on both, exactly as for every other platform.
+  - **Ten further issues found by code review before any live retest, none of them guessed:**
+    (1) `auth/publish_facebook.py` never forced its browser context to English like every other
+    publisher does -- fixed with the same `FORCE_ENGLISH_LOCALE` constant. (2) The documented
+    `--client-secrets path/to/tiktok_client.json` setup form silently broke every token refresh
+    once the file lived outside `profiles/tiktok/` -- `setup_tiktok_oauth.py` now also copies the
+    resolved config to the default location. (3) `doctor.py`'s TikTok creator-info check sent a
+    possibly-stale `access_token` straight to the API without ever checking whether it had
+    expired, unlike the publisher itself, which always refreshes first -- the first fix (calling
+    the publisher's own refresh helper) introduced a *second* problem: that helper makes a real
+    network call and writes refreshed credentials to disk, exactly the side effect doctor.py's own
+    module docstring promises it never has ("Nothing here launches a browser, publishes anything,
+    or spends money"). Fixed properly by extracting a read-only staleness check
+    (`_token_is_stale`) that doctor.py uses to skip the live check with a warning instead, never
+    calling the persisting refresh helper at all. (4) TikTok's real, documented chunking rule
+    (confirmed against its Media Transfer Guide, not guessed) is floor division with the final
+    chunk absorbing the remainder -- the original implementation used ceiling division with an
+    undersized trailing chunk instead, which would have mismatched the chunk count already
+    announced to TikTok's init endpoint for any video over 64 MiB. (5) An over-length TikTok
+    caption (over 2,200 UTF-16 code units) used to pass a dry run as "valid" and only get rejected
+    by the real API after the video upload had already happened -- now checked up front, in UTF-16
+    code units rather than Python character count. (6) `auth/publish_facebook.py`'s
+    timeline-verification check searched the whole page's text, which could false-positive on the
+    profile bio, nav text, or an older post -- scoped to `[role="article"]` post containers
+    instead. (7) `publish_tiktok()` always returned `"status": "uploaded"` regardless of what the
+    post-upload status check actually said -- a terminal `FAILED` response (TikTok's own
+    documented status, with a `fail_reason` field) would have been reported as if it succeeded
+    unless the caller manually inspected the nested `status_response`. Now raises on a genuine
+    `FAILED` status, and honestly reports `"processing"` rather than `"published"` for anything
+    short of TikTok's own `PUBLISH_COMPLETE`. A related, disclosed-but-unfixed gap: this module
+    still doesn't check a creator's own account restrictions (e.g. comments disabled globally)
+    against the flags it sends before publishing -- confirmed against TikTok's public docs that
+    the `creator_info/query` endpoint exposes this, but fixing it properly needs a live account to
+    confirm what the init endpoint actually does when a flag doesn't match, so it's left as an
+    explicit, documented gap rather than guessed. (8) The FAILED-status fix above was applied to
+    `publish_tiktok()`'s immediate post-upload check but not to `check_publish_status()` --
+    exactly the documented `--check-status` recovery path a user is told to use *instead* of
+    retrying blind. Extracted the shared validation into `_raise_on_terminal_failure()` so both
+    call sites behave identically; that recovery path won't tell you a failed post "succeeded"
+    either now. (9) `auth/publish_facebook.py`'s article-scoped verification (added earlier this
+    round) narrowed false positives from the profile bio/nav text, but could still match an
+    *older* post with similar leading text (a repeated caption, or a common generic opening).
+    Fixed by snapshotting the profile timeline's existing posts before submitting anything, then
+    only counting a match in a post that's genuinely new since that snapshot. (10) That
+    before-snapshot only covered the initially-loaded viewport, but the post-submit verification
+    loop scrolls to reveal more posts -- so an OLDER post sitting below the fold at snapshot time
+    would get revealed by the verification loop's own scrolling and wrongly look "new" too. Fixed
+    by having the before-snapshot scroll through the exact same depth
+    (`VERIFY_SCROLL_ATTEMPTS` x `VERIFY_SCROLL_PIXELS`) the verification loop does, accumulating
+    every article seen at each step (Facebook's feed can remove off-screen articles from the DOM
+    as new ones load in, so a single final-position snapshot isn't enough either).
+- **YouTube's upload category is no longer hardcoded.** `auth/publish_youtube.py` gained
+  `--category-id` (default unchanged: `22`, People & Blogs) -- closes a previously-documented
+  defect in the upload path.
+- **Every browser this repo launches for X, Bluesky, LinkedIn, and Instagram publishing is now
+  forced to English**, not just the login-wizard's own verification step. Extends the existing
+  `fix/non-english-onboarding` locale fix (`auth/login_wizard.py`'s `FORCE_ENGLISH_LOCALE`) to each
+  publisher's own `launch_persistent_context` call -- a session established under a forced-English
+  login could still hit the same class of selector failure at actual publish time, since that
+  browser context never inherited the same locale pin.
 - **Guided installers for Windows, macOS, and Linux** (`installer/`), aimed at someone with a
   Claude subscription but no GitHub, Git, or Python experience. `Socials-Studio-Setup.exe`
   (Windows), plus `.zip`/`.tar.gz` installer bundles for macOS/Linux, are built by CI (see

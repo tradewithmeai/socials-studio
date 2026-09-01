@@ -1,6 +1,6 @@
 ---
 name: troubleshoot-publishing
-description: Diagnose a publish that failed, hung, produced an uncertain result, or may have duplicated -- across YouTube, X, Bluesky, LinkedIn or Instagram. Use when a publish attempt errored, the browser closed unexpectedly, a result looks wrong, or you're unsure whether something already posted. Not for first-time login (see the platform's onboard-* skill) and not for a normal, successful publish (see the platform's publish-* skill).
+description: Diagnose a publish that failed, hung, produced an uncertain result, or may have duplicated -- across YouTube, X, Bluesky, LinkedIn, Instagram, TikTok, or Facebook. Use when a publish attempt errored, the browser closed unexpectedly, a result looks wrong, or you're unsure whether something already posted. Not for first-time login (see the platform's onboard-* skill) and not for a normal, successful publish (see the platform's publish-* skill).
 ---
 
 # Diagnose a failed post
@@ -31,6 +31,18 @@ normal, successful publish (the platform's `publish-*` skill).
   burn the session.
 - Never log in from inside automation to "fix" an auth failure -- use the platform's login wizard.
 - Never surface `profiles/*/storage_state.json`.
+- **TikTok specifically: never make repeated real (`--confirm-publish`) attempts back-to-back,
+  even to debug the same failure.** Observed live during initial TikTok integration testing: a
+  burst of real publish attempts against a brand-new unaudited developer app was followed by the
+  connected TikTok account being reset entirely -- new/changed username, zero
+  followers/posts/friends, asked to redo birthdate/photo/bio, no warning or notification email.
+  TikTok has not officially confirmed the cause. The most likely explanation is an agent (this one
+  included) retrying a real publish repeatedly without being told to space attempts out --
+  exactly the kind of rate-limit mistake that's easy to make without explicit instruction, not
+  necessarily a TikTok-specific landmine. Treat it as one anyway: use
+  `python -m auth.publish_tiktok --check-status <publish_id>` (read-only) to check an uncertain
+  result instead of publishing again, space any further real attempts minutes apart, and stop to
+  ask the user rather than retrying live against the API.
 
 ## Known failures and recovery
 
@@ -48,6 +60,8 @@ normal, successful publish (the platform's `publish-*` skill).
 | "Profile is already in use" / browser won't start | Another (or a stale) process holds the profile lock | Close the other run. Don't kill processes blind while a publish may be in flight. |
 | X: clicked Post, page moved on, nothing posted, an accessibility dialog was visible | The alt-text reminder ("Don't forget to make your image accessible") blocks submission until handled | Fill in real alt text and click Post again -- `publish_x.py` does this automatically; if it recurs, the dialog's buttons likely changed. |
 | X: the post reached almost nobody | Text began with `@handle`, which X classifies as a reply | Reorder the sentence so it doesn't open with a handle -- this is a reach failure, not a posting failure, so nothing will look wrong in the result. |
+| TikTok: account got reset/wiped (new username, zero followers/posts/friends, asked to redo birthdate/photo/bio) after several real publish attempts in a short window | Believed to be a rate-limit/anti-abuse reaction to rapid repeated Content Posting API calls on a brand-new unaudited app -- not officially confirmed by TikTok, but the timing matches an agent retrying without being told to space attempts out | No known recovery -- prevention only. Never retry a real TikTok publish to "debug" an uncertain result; use `--check-status` (read-only) or stop and ask the user instead. Space real attempts minutes apart. |
+| Facebook: any step -- this publisher is a community-contributed extra, unverified against a live account | Every selector is a first-draft guess (see `publish-facebook`'s module docstring) | Treat the first real attempt as a live test of the code itself, not a routine post. Use `_save_debug_screenshot`'s output (`profiles/facebook/last_failure_screenshot.png`) to see what the composer actually looked like, then fix the selector together with the user. |
 
 Before reporting success: reload the post fresh and confirm the content rendered -- don't trust the
 composer or the script's own return value alone.

@@ -19,9 +19,17 @@ python -m auth.publish_youtube path/to/video.mp4 --title "..."                  
 python -m auth.publish_youtube path/to/video.mp4 \
     --title "..." --description "..." --tags "a,b,c" --visibility private \
     --not-made-for-kids --acknowledge-upload-terms --confirm-publish
+
+python -m auth.publish_youtube path/to/video.mp4 --title "..." --category-id 20   # Gaming
 ```
 
 Requires `python -m auth.setup_youtube_oauth` to have already been run.
+
+`--category-id` accepts any YouTube Data API videoCategories numeric ID (see
+https://developers.google.com/youtube/v3/docs/videoCategories) and defaults to `22` (People &
+Blogs) if omitted. A few common ones: `20` Gaming, `24` Entertainment, `27` Education, `28`
+Science & Technology. Not validated locally -- an invalid ID is rejected by YouTube itself at
+upload time.
 
 Title/description rules:
 - **100-character title limit is a hard API limit** -- an over-length title is rejected outright.
@@ -47,7 +55,8 @@ fail to persist; re-apply with `videos.update` if missing).
 - **Upload fails with `401 youtubeSignupRequired`**: authorized as the wrong Google account.
   Verify with `youtube.channels().list(part="id,snippet", mine=True).execute()` before relying on
   the token -- exactly 1 item, your channel, is correct.
-- Category is hardcoded to `22` (People & Blogs), with no override.
+- Category defaults to `22` (People & Blogs) -- pass `--category-id` to override (e.g. `20` for
+  Gaming).
 - No thumbnail support -- needs a separate `thumbnails().set()` call after upload.
 - If a publish fails, looks uncertain, or you suspect a duplicate, use `troubleshoot-publishing`
   rather than retrying blind.
