@@ -296,8 +296,16 @@ def publish_facebook(
                 page.goto(profile_url, timeout=STEP_TIMEOUT_MS)
                 page.wait_for_timeout(4000)
                 for attempt in range(3):
+                    # Scoped to `[role="article"]` (Facebook's own ARIA role for a feed post),
+                    # not the whole page -- a bare document.body.innerText.includes() check would
+                    # also match the snippet in the profile bio, nav text, or an older post,
+                    # falsely reporting a post as verified when the new one never actually
+                    # appeared. Still unverified against a live account like everything else in
+                    # this file -- this narrows the false-positive surface, it doesn't eliminate
+                    # every way this selector could be wrong.
                     match = page.evaluate(
-                        """(snippet) => document.body.innerText.includes(snippet)""",
+                        """(snippet) => [...document.querySelectorAll('[role="article"]')]
+                            .some(article => (article.innerText || '').includes(snippet))""",
                         snippet,
                     )
                     if match:

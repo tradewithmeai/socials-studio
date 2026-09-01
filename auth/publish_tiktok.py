@@ -35,7 +35,10 @@ call sequence all work. The first live attempt failed with a 400 "the total chun
 invalid" error caused by chunking videos under 64 MiB, which TikTok requires to be sent as a
 single chunk -- see MIN_CHUNK_SIZE/MAX_CHUNK_SIZE above for the fix. Chunked upload of videos over
 64 MiB has not itself been exercised live yet (the test video was smaller), so treat the first
-real upload of a large video as still-unverified for that path specifically.
+real upload of a large video as still-unverified for that path specifically -- doubly so since a
+second chunking bug (total_chunk_count computed via ceil division with an undersized trailing
+chunk, instead of TikTok's documented floor-division-plus-oversized-final-chunk rule) was found
+and fixed by code review before ever reaching a live test. See _compute_chunking's docstring.
 """
 
 from __future__ import annotations
@@ -69,6 +72,17 @@ VISIBILITY_TO_PRIVACY_LEVEL = {
     "public": "PUBLIC_TO_EVERYONE",
 }
 VALID_VISIBILITY = set(VISIBILITY_TO_PRIVACY_LEVEL)
+
+# TikTok's documented caption/title limit, in UTF-16 code units (not Python characters -- a
+# character outside the Basic Multilingual Plane, e.g. many emoji, counts as 2 UTF-16 code units
+# via a surrogate pair). Previously only documented in --title's --help text, never actually
+# enforced -- a dry run reported successful validation for an over-length title, and the real API
+# call would only reject it after everything else (chunked upload included) had already happened.
+MAX_TITLE_UTF16_CODE_UNITS = 2200
+
+
+def _utf16_code_unit_length(text: str) -> int:
+    return len(text.encode("utf-16-le")) // 2
 
 # Printed unconditionally on every real-publish attempt -- see module docstring for why this is
 # never merely a documentation footnote. Unlike YouTube's UPLOAD_TERMS_NOTICE (a permanent legal
@@ -220,7 +234,16 @@ def _api_post_json(url: str, access_token: str, body: dict) -> dict:
 
 
 def _compute_chunking(total_size: int, chunk_size: int) -> tuple[int, int]:
-    """Return (effective_chunk_size, total_chunk_count) per TikTok's FILE_UPLOAD rules.
+    """Return (effective_chunk_size, total_chunk_count) per TikTok's real, documented FILE_UPLOAD
+    rules (https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide):
+    total_chunk_count = floor(video_size / chunk_size), and the FINAL chunk absorbs whatever
+    remainder is left over (so it can be larger than chunk_size -- TikTok documents up to 128 MiB
+    for that last chunk specifically) rather than there being an extra, smaller trailing chunk.
+
+    Codex-reported regression, caught before any live test: this used to compute
+    total_chunk_count via ceil division, matching neither TikTok's documented formula nor its
+    documented last-chunk behavior -- confirmed against TikTok's own Media Transfer Guide, not
+    guessed, before fixing.
 
     Videos at or under MAX_CHUNK_SIZE MUST be a single chunk -- TikTok's init endpoint rejects
     the request with "the total chunk count is invalid" otherwise (confirmed live 2026-08-17).
@@ -230,20 +253,30 @@ def _compute_chunking(total_size: int, chunk_size: int) -> tuple[int, int]:
     if total_size <= MAX_CHUNK_SIZE:
         return total_size, 1
     effective_chunk = min(max(chunk_size, MIN_CHUNK_SIZE), MAX_CHUNK_SIZE)
-    total_chunk_count = -(-total_size // effective_chunk)  # ceil division
+    total_chunk_count = max(1, total_size // effective_chunk)
     return effective_chunk, total_chunk_count
 
 
-def _upload_video_chunks(upload_url: str, video_file: Path, chunk_size: int, total_size: int) -> None:
+def _upload_video_chunks(
+    upload_url: str, video_file: Path, chunk_size: int, total_size: int, total_chunk_count: int
+) -> None:
+    """Upload exactly `total_chunk_count` chunks -- the number already announced to TikTok's
+    init endpoint in source_info.total_chunk_count, which _compute_chunking derives via floor
+    division. The final chunk reads everything remaining rather than a fixed `chunk_size` read,
+    so it can be larger than chunk_size and still land on exactly the announced chunk count --
+    an earlier version read fixed-size chunks in a plain while-loop, which silently produced one
+    more (smaller) chunk than announced whenever total_size wasn't an exact multiple of
+    chunk_size, mismatching the init call and hitting the same "invalid chunk count" failure
+    already confirmed live for the small-video case."""
     import urllib.error
     import urllib.request
 
     with video_file.open("rb") as f:
         offset = 0
-        while offset < total_size:
-            chunk = f.read(chunk_size)
-            if not chunk:
-                break
+        for chunk_index in range(total_chunk_count):
+            is_last_chunk = chunk_index == total_chunk_count - 1
+            read_size = (total_size - offset) if is_last_chunk else chunk_size
+            chunk = f.read(read_size)
             last_byte = offset + len(chunk) - 1
             req = urllib.request.Request(
                 upload_url,
@@ -282,6 +315,15 @@ def publish_tiktok(
 
     if visibility not in VALID_VISIBILITY:
         raise SystemExit(f"visibility must be one of {sorted(VALID_VISIBILITY)}")
+
+    title_length = _utf16_code_unit_length(title)
+    if title_length > MAX_TITLE_UTF16_CODE_UNITS:
+        raise SystemExit(
+            f"title is {title_length} UTF-16 code units, over TikTok's "
+            f"{MAX_TITLE_UTF16_CODE_UNITS}-code-unit limit -- shorten it before publishing "
+            "(a real upload would be rejected by the API anyway, but only after everything "
+            "else, including the video upload, had already happened)."
+        )
 
     video_file = Path(video_path).expanduser().resolve()
     if not video_file.is_file():
@@ -350,7 +392,7 @@ def publish_tiktok(
     if not publish_id or not upload_url:
         raise RuntimeError(f"TikTok init response missing publish_id/upload_url: {init_response}")
 
-    _upload_video_chunks(upload_url, video_file, effective_chunk, total_size)
+    _upload_video_chunks(upload_url, video_file, effective_chunk, total_size, total_chunk_count)
 
     status_response = _api_post_json(STATUS_FETCH_URL, access_token, {"publish_id": publish_id})
 

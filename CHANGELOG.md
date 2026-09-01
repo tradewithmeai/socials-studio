@@ -35,6 +35,21 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
     safe-by-default test suite; added a dedicated TikTok OAuth check group to `doctor.py`
     (`python doctor.py --tiktok`). Still safe by default either way -- `--confirm-publish` is
     required for a real publish on both, exactly as for every other platform.
+  - **Five further issues found by code review before any live retest, none of them guessed:**
+    (1) `auth/publish_facebook.py` never forced its browser context to English like every other
+    publisher does -- fixed with the same `FORCE_ENGLISH_LOCALE` constant. (2) The documented
+    `--client-secrets path/to/tiktok_client.json` setup form silently broke every token refresh
+    once the file lived outside `profiles/tiktok/` -- `setup_tiktok_oauth.py` now also copies the
+    resolved config to the default location. (3) `doctor.py`'s TikTok creator-info check sent a
+    possibly-stale `access_token` straight to the API without ever refreshing it first, unlike the
+    publisher itself -- fixed by reusing the publisher's own refresh logic. (4) TikTok's real,
+    documented chunking rule (confirmed against its Media Transfer Guide, not guessed) is floor
+    division with the final chunk absorbing the remainder -- the original implementation used
+    ceiling division with an undersized trailing chunk instead, which would have mismatched the
+    chunk count already announced to TikTok's init endpoint for any video over 64 MiB. (5) An
+    over-length TikTok caption (over 2,200 UTF-16 code units) used to pass a dry run as "valid"
+    and only get rejected by the real API after the video upload had already happened -- now
+    checked up front, in UTF-16 code units rather than Python character count.
 - **YouTube's upload category is no longer hardcoded.** `auth/publish_youtube.py` gained
   `--category-id` (default unchanged: `22`, People & Blogs) -- closes a previously-documented
   defect in the upload path.

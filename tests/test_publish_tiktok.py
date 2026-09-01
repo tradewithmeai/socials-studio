@@ -14,6 +14,7 @@ import pytest
 
 from auth.publish_tiktok import (
     MAX_CHUNK_SIZE,
+    MAX_TITLE_UTF16_CODE_UNITS,
     MIN_CHUNK_SIZE,
     SCOPES,
     UNAUDITED_APP_NOTICE,
@@ -22,6 +23,8 @@ from auth.publish_tiktok import (
     VISIBILITY_TO_PRIVACY_LEVEL,
     _api_post_json,
     _compute_chunking,
+    _upload_video_chunks,
+    _utf16_code_unit_length,
     check_publish_status,
     publish_tiktok,
 )
@@ -61,6 +64,42 @@ def test_invalid_visibility_rejected(tmp_path):
     video.write_bytes(b"not a real video, just needs to exist")
     with pytest.raises(SystemExit):
         publish_tiktok(str(video), title="t", visibility="bogus")
+
+
+def test_overlong_title_rejected_even_as_a_dry_run(tmp_path):
+    """Regression test for a Codex-reported gap: an over-length title used to pass a dry run
+    with a "successful validation" result, only to be rejected by the real API after everything
+    else (including the video upload) had already happened. Must be caught before that, on the
+    dry-run path too, not just for a real publish attempt."""
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"not a real video, just needs to exist")
+    overlong_title = "x" * (MAX_TITLE_UTF16_CODE_UNITS + 1)
+    with pytest.raises(SystemExit):
+        publish_tiktok(str(video), title=overlong_title)
+
+
+def test_title_at_exactly_the_limit_is_accepted(tmp_path):
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"not a real video, just needs to exist")
+    title_at_limit = "x" * MAX_TITLE_UTF16_CODE_UNITS
+    result = publish_tiktok(str(video), title=title_at_limit)
+    assert result["dry_run"] is True
+
+
+def test_title_length_counted_in_utf16_code_units_not_python_characters(tmp_path):
+    """A character outside the Basic Multilingual Plane (many emoji) counts as 2 UTF-16 code
+    units via a surrogate pair, not 1 -- the limit must be enforced in those terms, matching what
+    TikTok's API actually measures, not Python's `len()`."""
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"not a real video, just needs to exist")
+    emoji = "\U0001F600"  # outside the BMP -- 1 Python character, 2 UTF-16 code units
+    title = emoji * (MAX_TITLE_UTF16_CODE_UNITS // 2 + 1)  # over the limit in UTF-16 terms
+    # Sanity: well under the limit by raw Python character count, but over it in UTF-16 terms --
+    # this is the exact distinction the fix has to get right.
+    assert len(title) < MAX_TITLE_UTF16_CODE_UNITS
+    assert _utf16_code_unit_length(title) > MAX_TITLE_UTF16_CODE_UNITS
+    with pytest.raises(SystemExit):
+        publish_tiktok(str(video), title=title)
 
 
 def test_missing_video_path_rejected():
@@ -128,12 +167,30 @@ def test_video_exactly_at_threshold_is_a_single_chunk():
     assert effective_chunk == MAX_CHUNK_SIZE
 
 
-def test_large_video_is_split_into_clamped_chunks():
+def test_large_video_is_split_into_floor_divided_chunks():
+    """Regression test for a Codex-reported bug found before any live test: TikTok's real,
+    documented FILE_UPLOAD rules (Media Transfer Guide) compute total_chunk_count via FLOOR
+    division, with the final chunk absorbing the remainder (allowed to exceed chunk_size) --
+    not ceiling division with an extra, smaller trailing chunk, which is what this used to do
+    and which mismatches what TikTok's init endpoint expects."""
     large_size = MAX_CHUNK_SIZE * 3 + 1  # just over 3 full chunks
     effective_chunk, total_chunk_count = _compute_chunking(large_size, chunk_size=MAX_CHUNK_SIZE)
     assert effective_chunk == MAX_CHUNK_SIZE
-    assert total_chunk_count == 4  # 3 full chunks + a small remainder chunk
-    assert (total_chunk_count - 1) * effective_chunk < large_size <= total_chunk_count * effective_chunk
+    assert total_chunk_count == 3  # floor(large_size / MAX_CHUNK_SIZE) -- not 4
+    # The chunks that aren't the last one account for exactly (total_chunk_count - 1) *
+    # effective_chunk bytes; the final chunk absorbs everything else, which is necessarily
+    # larger than effective_chunk here since large_size isn't an exact multiple of it.
+    remainder_absorbed_by_last_chunk = large_size - (total_chunk_count - 1) * effective_chunk
+    assert remainder_absorbed_by_last_chunk > effective_chunk
+
+
+def test_large_video_exact_multiple_has_no_oversized_final_chunk():
+    """When total_size is an exact multiple of effective_chunk, floor division still gives the
+    right count and the "last chunk" is the same size as every other one -- no off-by-one."""
+    exact_size = MAX_CHUNK_SIZE * 3
+    effective_chunk, total_chunk_count = _compute_chunking(exact_size, chunk_size=MAX_CHUNK_SIZE)
+    assert total_chunk_count == 3
+    assert total_chunk_count * effective_chunk == exact_size
 
 
 def test_large_video_chunk_size_is_clamped_between_min_and_max():
@@ -144,6 +201,42 @@ def test_large_video_chunk_size_is_clamped_between_min_and_max():
     # a chunk_size above MAX_CHUNK_SIZE must be clamped down, not honored as-is
     effective_chunk, _ = _compute_chunking(large_size, chunk_size=MAX_CHUNK_SIZE * 10)
     assert effective_chunk == MAX_CHUNK_SIZE
+
+
+def test_upload_sends_exactly_the_announced_chunk_count_with_oversized_final_chunk(monkeypatch, tmp_path):
+    """Real byte-level regression test for the chunking bug above: _upload_video_chunks must
+    send exactly `total_chunk_count` PUT requests -- matching what was already announced to
+    TikTok's init endpoint -- not one more. Confirms the final request's Content-Range and body
+    actually contain the oversized remainder, not a separate small trailing chunk."""
+    chunk_size = 10
+    total_size = 25  # not an exact multiple of chunk_size -- 2 chunks: 10 bytes + 15 bytes
+    total_chunk_count = 2
+    video_file = tmp_path / "clip.mp4"
+    video_file.write_bytes(bytes(range(total_size)))
+
+    requests = []
+
+    def fake_urlopen(req, timeout=120):
+        requests.append(
+            {
+                "content_range": req.headers.get("Content-range") or req.headers.get("Content-Range"),
+                "content_length": req.headers.get("Content-length") or req.headers.get("Content-Length"),
+                "body": req.data,
+            }
+        )
+        return MagicMock()  # MagicMock supports __enter__/__exit__ for the `with` block itself
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    _upload_video_chunks("https://upload.example/", video_file, chunk_size, total_size, total_chunk_count)
+
+    assert len(requests) == total_chunk_count
+    assert requests[0]["content_range"] == "bytes 0-9/25"
+    assert requests[0]["body"] == bytes(range(0, 10))
+    # The final chunk absorbs everything remaining -- 15 bytes, not another fixed 10-byte read.
+    assert requests[1]["content_range"] == "bytes 10-24/25"
+    assert requests[1]["content_length"] == "15"
+    assert requests[1]["body"] == bytes(range(10, 25))
 
 
 def test_unaudited_private_account_error_is_explained(monkeypatch):
