@@ -81,8 +81,10 @@ assume the post is stuck private forever.
   own `"status"` field distinguishes this now -- `"published"` means TikTok's status check
   reported `PUBLISH_COMPLETE`, `"processing"` means it hadn't finished yet as of that check (use
   `--check-status` to follow up), and a terminal `FAILED` status raises an error with TikTok's own
-  `fail_reason` instead of silently returning either of those. Don't trust a bare `publish_id`
-  alone as proof of success.
+  `fail_reason` instead of silently returning either of those. This applies identically to
+  `--check-status` itself, not just the initial publish call -- the documented "check instead of
+  retrying" recovery path won't tell you a failed post "succeeded" either. Don't trust a bare
+  `publish_id` alone as proof of success.
 - **Token expired and refresh fails**: `profiles/tiktok/client_secret.json` must still exist (not
   just `token.json`) for a refresh to succeed -- see `onboard-tiktok`'s known failures.
 - **The connected TikTok account gets reset/wiped after several real publish attempts in a short

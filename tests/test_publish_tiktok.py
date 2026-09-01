@@ -350,10 +350,45 @@ def test_check_publish_status_wires_token_and_publish_id_through(monkeypatch):
     result = check_publish_status("v_pub_file~v2-1.example")
 
     assert result["publish_id"] == "v_pub_file~v2-1.example"
+    assert result["status"] == "published"
     assert result["status_response"]["data"]["status"] == "PUBLISH_COMPLETE"
     assert captured["access_token"] == "tok123"
     assert captured["body"] == {"publish_id": "v_pub_file~v2-1.example"}
     assert "status/fetch" in captured["url"]
+
+
+def test_check_publish_status_raises_on_terminal_failed_status(monkeypatch):
+    """Codex-reported gap: the FAILED-status fix was applied to publish_tiktok()'s immediate
+    post-upload check but not to check_publish_status() -- the documented --check-status recovery
+    path a user is told to use INSTEAD of retrying blind. That path must not be just as capable of
+    silently reporting a failed post as a success as the original bug it was meant to fix."""
+    monkeypatch.setattr("auth.publish_tiktok._load_token", lambda: {"access_token": "tok123"})
+    monkeypatch.setattr("auth.publish_tiktok._refresh_token_if_needed", lambda t: t)
+    monkeypatch.setattr(
+        "auth.publish_tiktok._api_post_json",
+        lambda url, access_token, body: {
+            "data": {"status": "FAILED", "fail_reason": "video_format_check_failed"},
+            "error": {"code": "ok"},
+        },
+    )
+
+    with pytest.raises(RuntimeError, match="video_format_check_failed"):
+        check_publish_status("v_pub_file~v2-1.example")
+
+
+def test_check_publish_status_reports_still_processing_honestly(monkeypatch):
+    monkeypatch.setattr("auth.publish_tiktok._load_token", lambda: {"access_token": "tok123"})
+    monkeypatch.setattr("auth.publish_tiktok._refresh_token_if_needed", lambda t: t)
+    monkeypatch.setattr(
+        "auth.publish_tiktok._api_post_json",
+        lambda url, access_token, body: {
+            "data": {"status": "PROCESSING_UPLOAD"},
+            "error": {"code": "ok"},
+        },
+    )
+
+    result = check_publish_status("v_pub_file~v2-1.example")
+    assert result["status"] == "processing"
 
 
 def test_doctor_registers_tiktok_without_treating_it_as_a_browser_platform():

@@ -35,7 +35,7 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
     safe-by-default test suite; added a dedicated TikTok OAuth check group to `doctor.py`
     (`python doctor.py --tiktok`). Still safe by default either way -- `--confirm-publish` is
     required for a real publish on both, exactly as for every other platform.
-  - **Seven further issues found by code review before any live retest, none of them guessed:**
+  - **Nine further issues found by code review before any live retest, none of them guessed:**
     (1) `auth/publish_facebook.py` never forced its browser context to English like every other
     publisher does -- fixed with the same `FORCE_ENGLISH_LOCALE` constant. (2) The documented
     `--client-secrets path/to/tiktok_client.json` setup form silently broke every token refresh
@@ -68,7 +68,16 @@ that will firm up once it leaves beta. Dates are when a release was tagged, not 
     against the flags it sends before publishing -- confirmed against TikTok's public docs that
     the `creator_info/query` endpoint exposes this, but fixing it properly needs a live account to
     confirm what the init endpoint actually does when a flag doesn't match, so it's left as an
-    explicit, documented gap rather than guessed.
+    explicit, documented gap rather than guessed. (8) The FAILED-status fix above was applied to
+    `publish_tiktok()`'s immediate post-upload check but not to `check_publish_status()` --
+    exactly the documented `--check-status` recovery path a user is told to use *instead* of
+    retrying blind. Extracted the shared validation into `_raise_on_terminal_failure()` so both
+    call sites behave identically; that recovery path won't tell you a failed post "succeeded"
+    either now. (9) `auth/publish_facebook.py`'s article-scoped verification (added earlier this
+    round) narrowed false positives from the profile bio/nav text, but could still match an
+    *older* post with similar leading text (a repeated caption, or a common generic opening).
+    Fixed by snapshotting the profile timeline's existing posts before submitting anything, then
+    only counting a match in a post that's genuinely new since that snapshot.
 - **YouTube's upload category is no longer hardcoded.** `auth/publish_youtube.py` gained
   `--category-id` (default unchanged: `22`, People & Blogs) -- closes a previously-documented
   defect in the upload path.

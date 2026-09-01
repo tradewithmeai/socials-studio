@@ -327,6 +327,36 @@ def _upload_video_chunks(
             offset += len(chunk)
 
 
+def _raise_on_terminal_failure(status_response: dict, publish_id: str) -> str | None:
+    """Interpret a status_response from STATUS_FETCH_URL and return TikTok's own status string
+    (e.g. "PUBLISH_COMPLETE", "PROCESSING_UPLOAD") unchanged -- or raise on a genuine API-level
+    error or a terminal FAILED status. TikTok's documented post-status values
+    (https://developers.tiktok.com/doc/content-posting-api-reference-get-video-status):
+    PUBLISH_COMPLETE (done), FAILED (terminal, with a fail_reason field), and several
+    PROCESSING_* values for "still working on it."
+
+    Shared by publish_tiktok()'s immediate post-upload check and check_publish_status()'s
+    --check-status follow-up -- Codex-reported: the first version of this fix only applied to the
+    former, leaving the documented "use --check-status instead of retrying" recovery path just as
+    blind to a real failure as the original bug it was meant to replace would have been."""
+    status_error = status_response.get("error", {})
+    if status_error.get("code") not in (None, "ok"):
+        raise RuntimeError(
+            f"TikTok status check failed for publish_id={publish_id}: {status_error}. "
+            "Do not retry blind -- use --check-status to re-check later."
+        )
+
+    tiktok_status = status_response.get("data", {}).get("status")
+    if tiktok_status == "FAILED":
+        fail_reason = status_response.get("data", {}).get("fail_reason", "unknown")
+        raise RuntimeError(
+            f"TikTok rejected this post (fail_reason={fail_reason}, publish_id={publish_id}). "
+            "Do not retry blind -- see the troubleshoot-publishing skill before attempting "
+            "another real publish."
+        )
+    return tiktok_status
+
+
 def publish_tiktok(
     video_path: str,
     title: str = "",
@@ -423,31 +453,7 @@ def publish_tiktok(
     _upload_video_chunks(upload_url, video_file, effective_chunk, total_size, total_chunk_count)
 
     status_response = _api_post_json(STATUS_FETCH_URL, access_token, {"publish_id": publish_id})
-
-    # Codex-reported regression, caught before any live test: this used to always return
-    # "status": "uploaded" regardless of what status_response actually said, even a terminal
-    # FAILED -- reporting a rejected post as if it succeeded unless the caller happened to
-    # manually inspect the nested status_response. TikTok's documented post-status values
-    # (https://developers.tiktok.com/doc/content-posting-api-reference-get-video-status):
-    # PUBLISH_COMPLETE (done), FAILED (terminal, with a fail_reason field), and several
-    # PROCESSING_* values for "still working on it" -- see check_publish_status above for
-    # re-checking one of those later. A FAILED status must raise, not silently succeed; anything
-    # short of PUBLISH_COMPLETE is honestly reported as still processing, not "uploaded" outright.
-    status_error = status_response.get("error", {})
-    if status_error.get("code") not in (None, "ok"):
-        raise RuntimeError(
-            f"TikTok status check failed for publish_id={publish_id}: {status_error}. "
-            "Do not retry blind -- use --check-status to re-check later."
-        )
-
-    tiktok_status = status_response.get("data", {}).get("status")
-    if tiktok_status == "FAILED":
-        fail_reason = status_response.get("data", {}).get("fail_reason", "unknown")
-        raise RuntimeError(
-            f"TikTok rejected this post after upload (fail_reason={fail_reason}, "
-            f"publish_id={publish_id}). Do not retry blind -- see the troubleshoot-publishing "
-            "skill before attempting another real publish."
-        )
+    tiktok_status = _raise_on_terminal_failure(status_response, publish_id)
 
     return {
         "dry_run": False,
@@ -472,11 +478,22 @@ def check_publish_status(publish_id: str) -> dict:
     was returned right after upload. Added 2026-08-18 after a real publish_id came back
     "PROCESSING_UPLOAD" (a transient state) and the video never actually appeared in the TikTok
     app -- the original code only ever checked status once, immediately after uploading, and
-    never found out whether processing later succeeded or failed."""
+    never found out whether processing later succeeded or failed.
+
+    This is the documented, safe way to check an uncertain publish instead of retrying it for
+    real -- see the troubleshoot-publishing/publish-tiktok guardrails. It must raise on a genuine
+    FAILED status exactly like publish_tiktok()'s own post-upload check does (via the same shared
+    _raise_on_terminal_failure), not just return the raw response unchanged: a caller using this
+    tool specifically to avoid a blind retry must not be told a failed post "succeeded" either."""
     token = _load_token()
     token = _refresh_token_if_needed(token)
     status_response = _api_post_json(STATUS_FETCH_URL, token["access_token"], {"publish_id": publish_id})
-    return {"publish_id": publish_id, "status_response": status_response}
+    tiktok_status = _raise_on_terminal_failure(status_response, publish_id)
+    return {
+        "publish_id": publish_id,
+        "status": "published" if tiktok_status == "PUBLISH_COMPLETE" else "processing",
+        "status_response": status_response,
+    }
 
 
 def main() -> None:

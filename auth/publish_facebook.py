@@ -81,6 +81,36 @@ def _dismiss_cookie_banner(page) -> None:
         pass
 
 
+def _find_profile_url(page) -> str | None:
+    """Find the user's own profile link dynamically, the same approach already used for
+    LinkedIn -- read `.href` (resolved absolute URL), not getAttribute('href'). Facebook's left
+    rail (and this nav link) persists across pages, so this works from the home feed too, not
+    just the profile page itself -- used both before posting (to snapshot existing articles) and
+    after (to verify)."""
+    return page.evaluate("""() => {
+        const link = document.querySelector('a[aria-label="Your profile"]')
+            || document.querySelector('a[href*="/profile.php?id="]')
+            || document.querySelector('div[data-pagelet="LeftRail"] a[role="link"]');
+        return link ? link.href : null;
+    }""")
+
+
+_ARTICLE_FINGERPRINT_PREFIX_LENGTH = 80
+
+
+def _article_fingerprints(page) -> list[str]:
+    """Snapshot every `[role="article"]` (Facebook's own ARIA role for a feed/timeline post)
+    currently on the page, as a short text prefix each -- used to tell a genuinely NEW post
+    (one that wasn't in an earlier snapshot) apart from an older post that happens to start with
+    similar text. Not a unique post ID (unverified against a live account like everything else in
+    this file), just a much narrower fingerprint than the article's full text."""
+    return page.evaluate(
+        """(prefixLen) => [...document.querySelectorAll('[role="article"]')]
+            .map(article => (article.innerText || '').slice(0, prefixLen))""",
+        _ARTICLE_FINGERPRINT_PREFIX_LENGTH,
+    )
+
+
 def _open_composer(page) -> bool:
     """Click the "What's on your mind?" opener on the home feed. The visible text includes the
     logged-in user's own first name (e.g. "What's on your mind, Alex?"), so this matches on the
@@ -193,6 +223,23 @@ def publish_facebook(
             page.wait_for_timeout(2000)
             _dismiss_cookie_banner(page)
 
+            # Snapshot the profile timeline's existing posts BEFORE submitting anything -- this
+            # is what makes the later verification step check for a genuinely NEW post rather
+            # than matching an older one with similar leading text (Codex-reported: scoping the
+            # match to `[role="article"]` alone narrows out bio/nav-text false positives, but an
+            # older post starting with the same ~40 characters -- a repeated caption, or a common
+            # generic opening -- would still false-positive "verified"). Best-effort: if the
+            # profile link isn't found yet (still unverified selector), verification below just
+            # falls back to no before-snapshot rather than failing the whole publish over it.
+            profile_url = _find_profile_url(page)
+            existing_article_fingerprints: set[str] = set()
+            if profile_url:
+                page.goto(profile_url, timeout=STEP_TIMEOUT_MS)
+                page.wait_for_timeout(3000)
+                existing_article_fingerprints = set(_article_fingerprints(page))
+                page.goto("https://www.facebook.com/", timeout=STEP_TIMEOUT_MS)
+                page.wait_for_timeout(2000)
+
             if not _open_composer(page):
                 screenshot_path = _save_debug_screenshot(page)
                 raise RuntimeError(
@@ -281,14 +328,10 @@ def publish_facebook(
                     + (f"Screenshot saved to {screenshot_path}." if screenshot_path else "")
                 )
 
-            # Find the user's own profile link dynamically, the same approach already used for
-            # LinkedIn -- read `.href` (resolved absolute URL), not getAttribute('href').
-            profile_url = page.evaluate("""() => {
-                const link = document.querySelector('a[aria-label="Your profile"]')
-                    || document.querySelector('a[href*="/profile.php?id="]')
-                    || document.querySelector('div[data-pagelet="LeftRail"] a[role="link"]');
-                return link ? link.href : null;
-            }""")
+            # Re-resolve profile_url here too, in case it wasn't found in the earlier
+            # before-snapshot step (best-effort there) but is findable now.
+            if not profile_url:
+                profile_url = _find_profile_url(page)
 
             verified = False
             if profile_url:
@@ -296,19 +339,23 @@ def publish_facebook(
                 page.goto(profile_url, timeout=STEP_TIMEOUT_MS)
                 page.wait_for_timeout(4000)
                 for attempt in range(3):
-                    # Scoped to `[role="article"]` (Facebook's own ARIA role for a feed post),
-                    # not the whole page -- a bare document.body.innerText.includes() check would
-                    # also match the snippet in the profile bio, nav text, or an older post,
-                    # falsely reporting a post as verified when the new one never actually
-                    # appeared. Still unverified against a live account like everything else in
-                    # this file -- this narrows the false-positive surface, it doesn't eliminate
-                    # every way this selector could be wrong.
-                    match = page.evaluate(
-                        """(snippet) => [...document.querySelectorAll('[role="article"]')]
-                            .some(article => (article.innerText || '').includes(snippet))""",
-                        snippet,
-                    )
-                    if match:
+                    # Codex-reported, in two parts. First: a bare
+                    # document.body.innerText.includes() check would also match the snippet in
+                    # the profile bio or nav text -- fixed by scoping to `[role="article"]`
+                    # (Facebook's own ARIA role for a feed post). Second: scoping to articles
+                    # alone still doesn't prove the match is the post just made, not an older one
+                    # starting with similar text (a repeated caption, or a common generic
+                    # opening) -- fixed by comparing against the before-snapshot taken earlier
+                    # and only counting a match in an article that's NEW since then. Still
+                    # unverified against a live account like everything else in this file -- this
+                    # narrows the false-positive surface further, it doesn't eliminate every way
+                    # this could be wrong (e.g. two genuinely new posts with identical leading
+                    # text in the same run).
+                    current_fingerprints = _article_fingerprints(page)
+                    new_fingerprints = [
+                        fp for fp in current_fingerprints if fp not in existing_article_fingerprints
+                    ]
+                    if any(snippet in fp for fp in new_fingerprints):
                         verified = True
                         break
                     page.mouse.wheel(0, 4000)

@@ -33,9 +33,13 @@ to know its real character limits or rendering quirks. Keep posts short and simp
 run says otherwise.
 
 Verify after posting: reload the profile timeline and match on text unique to the post. The
-result dict's own `"verified"` field already tries this automatically (it revisits the profile and
-searches the rendered page text), but its `"verify_note"` says plainly when it couldn't confirm --
-treat that as "check by hand," not as a failure on its own.
+result dict's own `"verified"` field already tries this automatically -- it snapshots the profile
+timeline's existing posts *before* submitting anything, then afterward only counts a match in a
+post that's genuinely new since that snapshot, not just any post containing similar text (an older
+post with the same generic opening line would otherwise false-positive). Still not a unique post
+ID -- two genuinely new posts with identical leading text in the same run could still confuse it --
+so its `"verify_note"` says plainly when it couldn't confirm; treat that as "check by hand," not as
+a failure on its own.
 
 ## Guardrails
 
