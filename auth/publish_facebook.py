@@ -52,6 +52,15 @@ STEP_TIMEOUT_MS = 30_000
 VIDEO_PROCESSING_WAIT_ITERATIONS = 150
 VIDEO_PROCESSING_WAIT_INTERVAL_MS = 2000
 
+# How far the post-submit verification step scrolls, and in how many steps, looking for the new
+# post. The pre-submit snapshot (_snapshot_existing_articles) scrolls through exactly the same
+# depth -- Codex-reported: an earlier version only snapshotted the initially-loaded viewport, so
+# an OLDER post sitting below the fold at snapshot time (absent from that snapshot) but revealed
+# by the verification loop's own scrolling would wrongly look "new". Both loops must cover the
+# same ground for the before/after comparison to mean anything.
+VERIFY_SCROLL_ATTEMPTS = 3
+VERIFY_SCROLL_PIXELS = 4000
+
 
 def _save_debug_screenshot(page) -> Path | None:
     """Best-effort screenshot saved BEFORE the calling code raises -- the browser context is
@@ -109,6 +118,21 @@ def _article_fingerprints(page) -> list[str]:
             .map(article => (article.innerText || '').slice(0, prefixLen))""",
         _ARTICLE_FINGERPRINT_PREFIX_LENGTH,
     )
+
+
+def _snapshot_existing_articles(page) -> set[str]:
+    """Fingerprint every article currently reachable by scrolling through
+    VERIFY_SCROLL_ATTEMPTS steps of VERIFY_SCROLL_PIXELS each -- the exact same depth the
+    post-submit verification loop scrolls through. Accumulates the union seen at every step
+    (not just the final one) since Facebook's feed can virtualize/remove off-screen articles from
+    the DOM as new ones load in, so an article visible at step 1 might not still be present once
+    the page has scrolled to step 3."""
+    fingerprints: set[str] = set(_article_fingerprints(page))
+    for _ in range(VERIFY_SCROLL_ATTEMPTS):
+        page.mouse.wheel(0, VERIFY_SCROLL_PIXELS)
+        page.wait_for_timeout(1500)
+        fingerprints.update(_article_fingerprints(page))
+    return fingerprints
 
 
 def _open_composer(page) -> bool:
@@ -236,7 +260,7 @@ def publish_facebook(
             if profile_url:
                 page.goto(profile_url, timeout=STEP_TIMEOUT_MS)
                 page.wait_for_timeout(3000)
-                existing_article_fingerprints = set(_article_fingerprints(page))
+                existing_article_fingerprints = _snapshot_existing_articles(page)
                 page.goto("https://www.facebook.com/", timeout=STEP_TIMEOUT_MS)
                 page.wait_for_timeout(2000)
 
@@ -338,19 +362,24 @@ def publish_facebook(
                 snippet = text[:40]
                 page.goto(profile_url, timeout=STEP_TIMEOUT_MS)
                 page.wait_for_timeout(4000)
-                for attempt in range(3):
-                    # Codex-reported, in two parts. First: a bare
+                for attempt in range(VERIFY_SCROLL_ATTEMPTS):
+                    # Codex-reported, in three parts so far. First: a bare
                     # document.body.innerText.includes() check would also match the snippet in
                     # the profile bio or nav text -- fixed by scoping to `[role="article"]`
                     # (Facebook's own ARIA role for a feed post). Second: scoping to articles
                     # alone still doesn't prove the match is the post just made, not an older one
                     # starting with similar text (a repeated caption, or a common generic
                     # opening) -- fixed by comparing against the before-snapshot taken earlier
-                    # and only counting a match in an article that's NEW since then. Still
-                    # unverified against a live account like everything else in this file -- this
-                    # narrows the false-positive surface further, it doesn't eliminate every way
-                    # this could be wrong (e.g. two genuinely new posts with identical leading
-                    # text in the same run).
+                    # and only counting a match in an article that's NEW since then. Third: the
+                    # before-snapshot only covered the initially-loaded viewport, so an older post
+                    # sitting below the fold at snapshot time -- but revealed by THIS loop's own
+                    # scrolling -- would wrongly look "new" too. Fixed by having
+                    # _snapshot_existing_articles scroll through the exact same
+                    # VERIFY_SCROLL_ATTEMPTS x VERIFY_SCROLL_PIXELS depth up front, so both passes
+                    # cover identical ground. Still unverified against a live account like
+                    # everything else in this file -- this narrows the false-positive surface
+                    # further, it doesn't eliminate every way this could be wrong (e.g. two
+                    # genuinely new posts with identical leading text in the same run).
                     current_fingerprints = _article_fingerprints(page)
                     new_fingerprints = [
                         fp for fp in current_fingerprints if fp not in existing_article_fingerprints
@@ -358,7 +387,7 @@ def publish_facebook(
                     if any(snippet in fp for fp in new_fingerprints):
                         verified = True
                         break
-                    page.mouse.wheel(0, 4000)
+                    page.mouse.wheel(0, VERIFY_SCROLL_PIXELS)
                     page.wait_for_timeout(3000)
 
             result = {
